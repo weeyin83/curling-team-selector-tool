@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Favicon for the Curling Team Selector.
+    A stylised curling stone rendered as a two-tone circle so it
+    reads clearly at 16x16 and 32x32 in browser tabs. Uses the same
+    dark-blue brand palette as styles.css.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Curling stone">
+    <defs>
+        <radialGradient id="stone" cx="45%" cy="35%" r="70%">
+            <stop offset="0%" stop-color="#6b7d92"/>
+            <stop offset="60%" stop-color="#2f3f56"/>
+            <stop offset="100%" stop-color="#0f2540"/>
+        </radialGradient>
+    </defs>
+    <!-- Handle -->
+    <rect x="24" y="8" width="16" height="10" rx="3" fill="#f59e0b"/>
+    <rect x="28" y="6" width="8" height="6" rx="2" fill="#facc15"/>
+    <!-- Stone body -->
+    <ellipse cx="32" cy="40" rx="26" ry="20" fill="url(#stone)"/>
+    <!-- Highlight -->
+    <ellipse cx="24" cy="32" rx="10" ry="4" fill="#ffffff" fill-opacity="0.25"/>
+    <!-- Base shadow -->
+    <ellipse cx="32" cy="58" rx="22" ry="3" fill="#000000" fill-opacity="0.25"/>
+</svg>

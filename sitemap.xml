@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Static sitemap for the Curling Team Selector.
+    Two public pages: home and about. Replace the <loc> host prefix
+    below with your production domain once it's live.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://REPLACE-WITH-YOUR-DOMAIN.example/</loc>
+        <changefreq>monthly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>https://REPLACE-WITH-YOUR-DOMAIN.example/about.html</loc>
+        <changefreq>yearly</changefreq>
+        <priority>0.5</priority>
+    </url>
+</urlset>

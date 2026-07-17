@@ -3,9 +3,87 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="About the Curling Team Selector — a private, in-browser tool for drawing random curling teams." />
-    <title>About · Curling Team Selector</title>
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#0b5cff" />
+
+    <!-- ============================================================
+         SEO: primary tags. Replace REPLACE-WITH-YOUR-DOMAIN.example
+         with your production domain (see index.html for the full
+         list of files that hold it).
+         ============================================================ -->
+    <title>About · Curling Team Selector — a private, in-browser curling team draw</title>
+    <meta name="description" content="About the Curling Team Selector: a free, in-browser tool that replaces drawing curling team names from an envelope. Learn how the draw works, how imports are parsed locally, and how multiple competitions are kept independent." />
+    <meta name="author" content="Sarah Lean" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+
+    <link rel="canonical" href="https://REPLACE-WITH-YOUR-DOMAIN.example/about.html" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" href="favicon.svg" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Curling Team Selector" />
+    <meta property="og:title" content="About the Curling Team Selector" />
+    <meta property="og:description" content="A free, in-browser tool that replaces drawing curling team names from an envelope. No accounts, no cookies, no tracking." />
+    <meta property="og:url" content="https://REPLACE-WITH-YOUR-DOMAIN.example/about.html" />
+    <meta property="og:image" content="https://REPLACE-WITH-YOUR-DOMAIN.example/og-image.svg" />
+    <meta property="og:image:alt" content="Curling Team Selector — draw random teams, no envelopes required." />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_GB" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="About the Curling Team Selector" />
+    <meta name="twitter:description" content="A free, in-browser tool that replaces drawing curling team names from an envelope. No accounts, no cookies, no tracking." />
+    <meta name="twitter:image" content="https://REPLACE-WITH-YOUR-DOMAIN.example/og-image.svg" />
+    <meta name="twitter:image:alt" content="Curling Team Selector — draw random teams, no envelopes required." />
+
     <link rel="stylesheet" href="styles.css" />
+
+    <!-- Structured data: WebSite reference + AboutPage + BreadcrumbList -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://REPLACE-WITH-YOUR-DOMAIN.example/#website",
+                "url": "https://REPLACE-WITH-YOUR-DOMAIN.example/",
+                "name": "Curling Team Selector",
+                "inLanguage": "en"
+            },
+            {
+                "@type": "AboutPage",
+                "@id": "https://REPLACE-WITH-YOUR-DOMAIN.example/about.html#about",
+                "url": "https://REPLACE-WITH-YOUR-DOMAIN.example/about.html",
+                "name": "About the Curling Team Selector",
+                "isPartOf": { "@id": "https://REPLACE-WITH-YOUR-DOMAIN.example/#website" },
+                "primaryImageOfPage": "https://REPLACE-WITH-YOUR-DOMAIN.example/og-image.svg",
+                "inLanguage": "en"
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Home",
+                        "item": "https://REPLACE-WITH-YOUR-DOMAIN.example/"
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "About",
+                        "item": "https://REPLACE-WITH-YOUR-DOMAIN.example/about.html"
+                    }
+                ]
+            }
+        ]
+    }
+    </script>
 </head>
 <body>
     <header class="app-header">
@@ -13,8 +91,10 @@
             <div class="brand">
                 <span class="brand-icon" aria-hidden="true">🥌</span>
                 <div>
-                    <h1>Curling Team Selector</h1>
-                    <p class="tagline">About this tool</p>
+                    <h1>About the Curling Team Selector</h1>
+                    <p class="tagline">
+                        <a href="index.html" class="brand-back">← Back to the team draw</a>
+                    </p>
                 </div>
             </div>
             <div class="privacy-badge" title="All data stays in your browser. Nothing is uploaded or stored.">

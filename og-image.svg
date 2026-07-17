@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Open Graph / social share card for the Curling Team Selector.
+    1200x630 is the recommended size for Facebook, LinkedIn, Slack,
+    Teams, WhatsApp, and X. SVG renders sharply at any pixel density
+    and is honoured by most crawlers; X still prefers PNG, so if
+    Twitter Card previews look thin, export this file to PNG once
+    (any online SVG-to-PNG converter or a designer will do) and
+    switch the og:image references to `og-image.png`.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Curling Team Selector — draw random teams, no envelopes required">
+    <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"  stop-color="#0b5cff"/>
+            <stop offset="60%" stop-color="#0946c9"/>
+            <stop offset="100%" stop-color="#072a7a"/>
+        </linearGradient>
+        <radialGradient id="stone" cx="45%" cy="35%" r="70%">
+            <stop offset="0%" stop-color="#a3b1c5"/>
+            <stop offset="60%" stop-color="#4a5b74"/>
+            <stop offset="100%" stop-color="#0f2540"/>
+        </radialGradient>
+        <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="6"/>
+        </filter>
+    </defs>
+
+    <!-- Background -->
+    <rect width="1200" height="630" fill="url(#bg)"/>
+
+    <!-- Curling ice sheen -->
+    <ellipse cx="600" cy="720" rx="900" ry="220" fill="#ffffff" fill-opacity="0.12"/>
+
+    <!-- Stone: handle -->
+    <rect x="880" y="200" width="120" height="70" rx="20" fill="#f59e0b" filter="url(#soft)"/>
+    <rect x="905" y="185" width="70" height="45" rx="14" fill="#facc15"/>
+    <!-- Stone: body -->
+    <ellipse cx="940" cy="410" rx="200" ry="150" fill="url(#stone)"/>
+    <!-- Stone: highlight -->
+    <ellipse cx="880" cy="360" rx="80" ry="26" fill="#ffffff" fill-opacity="0.28"/>
+
+    <!-- Text block -->
+    <g fill="#ffffff" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+        <text x="80" y="240" font-size="72" font-weight="700" letter-spacing="-0.02em">Curling</text>
+        <text x="80" y="330" font-size="72" font-weight="700" letter-spacing="-0.02em">Team Selector</text>
+
+        <text x="80" y="410" font-size="30" font-weight="400" fill-opacity="0.85">
+            Draw random teams — no envelopes required.
+        </text>
+
+        <!-- Feature chips -->
+        <g font-size="22" font-weight="500">
+            <rect x="80" y="470" width="270" height="52" rx="26" fill="#ffffff" fill-opacity="0.18" stroke="#ffffff" stroke-opacity="0.35"/>
+            <text x="215" y="504" text-anchor="middle">🔒 100% local &amp; private</text>
+
+            <rect x="370" y="470" width="230" height="52" rx="26" fill="#ffffff" fill-opacity="0.18" stroke="#ffffff" stroke-opacity="0.35"/>
+            <text x="485" y="504" text-anchor="middle">🎲 One-click draw</text>
+
+            <rect x="620" y="470" width="200" height="52" rx="26" fill="#ffffff" fill-opacity="0.18" stroke="#ffffff" stroke-opacity="0.35"/>
+            <text x="720" y="504" text-anchor="middle">📄 Excel import</text>
+        </g>
+
+        <!-- Attribution -->
+        <text x="80" y="580" font-size="20" fill-opacity="0.7">
+            Built for curling clubs — free, no accounts, no cookies, no tracking.
+        </text>
+    </g>
+</svg>

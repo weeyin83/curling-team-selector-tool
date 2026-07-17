@@ -3,9 +3,113 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Randomly generate curling teams from a player roster. Works entirely in your browser — no data leaves your device." />
-    <title>Curling Team Selector</title>
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#0b5cff" />
+
+    <!-- ============================================================
+         SEO: primary tags
+         ============================================================
+         Replace every occurrence of "REPLACE-WITH-YOUR-DOMAIN.example"
+         (in this file, about.html, robots.txt, and sitemap.xml) with
+         your production domain once it's live. Everything else in
+         the head can stay as-is.
+         ============================================================ -->
+    <title>Curling Team Selector — draw random curling teams from your club roster</title>
+    <meta name="description" content="Free, in-browser tool for drawing random curling teams from a roster. Supports 2/3/4-person teams, position preferences, Excel and CSV import, per-competition tabs, locks, redraws, print/save-as-PDF, and copy-to-clipboard. No accounts, no cookies, no tracking." />
+    <meta name="keywords" content="curling teams, curling team draw, curling roster, curling team generator, curling triples, mixed doubles, curling club, curling league night, random team selector" />
+    <meta name="author" content="Sarah Lean" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+
+    <link rel="canonical" href="https://REPLACE-WITH-YOUR-DOMAIN.example/" />
+
+    <!-- ============================================================
+         Favicons
+         ============================================================ -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" href="favicon.svg" />
+
+    <!-- ============================================================
+         Open Graph (Facebook, LinkedIn, WhatsApp, Slack, Teams)
+         ============================================================ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Curling Team Selector" />
+    <meta property="og:title" content="Curling Team Selector — draw random curling teams from your club roster" />
+    <meta property="og:description" content="Free, in-browser tool for drawing random curling teams. Supports 2/3/4-person teams, Excel/CSV import, and multiple competitions. No accounts, no cookies, no tracking." />
+    <meta property="og:url" content="https://REPLACE-WITH-YOUR-DOMAIN.example/" />
+    <meta property="og:image" content="https://REPLACE-WITH-YOUR-DOMAIN.example/og-image.svg" />
+    <meta property="og:image:alt" content="Curling Team Selector — draw random teams, no envelopes required." />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_GB" />
+
+    <!-- ============================================================
+         Twitter / X
+         ============================================================ -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Curling Team Selector — draw random curling teams from your club roster" />
+    <meta name="twitter:description" content="Free, in-browser tool for drawing random curling teams. 2/3/4-person teams, Excel/CSV import, per-competition tabs. No accounts, no cookies, no tracking." />
+    <meta name="twitter:image" content="https://REPLACE-WITH-YOUR-DOMAIN.example/og-image.svg" />
+    <meta name="twitter:image:alt" content="Curling Team Selector — draw random teams, no envelopes required." />
+
     <link rel="stylesheet" href="styles.css" />
+
+    <!-- Give the browser a head-start on the About page. -->
+    <link rel="prefetch" href="about.html" as="document" />
+
+    <!-- ============================================================
+         Structured data (JSON-LD)
+         ============================================================
+         WebSite    – Root site metadata.
+         WebApplication – This tool. Google can surface a rich card
+                          for utility/web apps in search.
+         ============================================================ -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://REPLACE-WITH-YOUR-DOMAIN.example/#website",
+                "url": "https://REPLACE-WITH-YOUR-DOMAIN.example/",
+                "name": "Curling Team Selector",
+                "description": "Free, in-browser tool for drawing random curling teams from a roster.",
+                "inLanguage": "en"
+            },
+            {
+                "@type": "WebApplication",
+                "@id": "https://REPLACE-WITH-YOUR-DOMAIN.example/#app",
+                "name": "Curling Team Selector",
+                "url": "https://REPLACE-WITH-YOUR-DOMAIN.example/",
+                "applicationCategory": "SportsApplication",
+                "operatingSystem": "Any (browser)",
+                "browserRequirements": "Requires a modern browser with JavaScript enabled.",
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "GBP"
+                },
+                "featureList": [
+                    "Manual player entry",
+                    "Bulk paste roster",
+                    "Excel (.xlsx) and CSV import — parsed locally in-browser",
+                    "Multiple competitions in one page (Trophy 1, Trophy 2, etc.)",
+                    "2, 3, or 4-person team draws",
+                    "Position preferences (Skip / Third / Second / Lead) with flexible fallback",
+                    "Per-slot and per-team locks for redraws",
+                    "Drag-and-drop swapping between slots and substitutes",
+                    "Print / save-as-PDF team sheet",
+                    "Copy teams as plain text for WhatsApp / email"
+                ],
+                "isAccessibleForFree": true,
+                "author": {
+                    "@type": "Person",
+                    "name": "Sarah Lean",
+                    "url": "https://sarahlean.com"
+                }
+            }
+        ]
+    }
+    </script>
 
     <!-- =========================================================
          Ahrefs Web Analytics (placeholder)
