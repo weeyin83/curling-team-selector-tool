@@ -26,7 +26,7 @@
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="Curling Team Selector" />
     <meta property="og:title" content="About the Curling Team Selector" />
-    <meta property="og:description" content="A free, in-browser tool that replaces drawing curling team names from an envelope. No accounts, no cookies, no tracking." />
+    <meta property="og:description" content="A free, in-browser tool that replaces drawing curling team names from an envelope. No accounts, and your roster never leaves your browser." />
     <meta property="og:url" content="https://REPLACE-WITH-YOUR-DOMAIN.example/about.html" />
     <meta property="og:image" content="https://REPLACE-WITH-YOUR-DOMAIN.example/og-image.svg" />
     <meta property="og:image:alt" content="Curling Team Selector — draw random teams, no envelopes required." />
@@ -37,11 +37,18 @@
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="About the Curling Team Selector" />
-    <meta name="twitter:description" content="A free, in-browser tool that replaces drawing curling team names from an envelope. No accounts, no cookies, no tracking." />
+    <meta name="twitter:description" content="A free, in-browser tool that replaces drawing curling team names from an envelope. No accounts, and your roster never leaves your browser." />
     <meta name="twitter:image" content="https://REPLACE-WITH-YOUR-DOMAIN.example/og-image.svg" />
     <meta name="twitter:image:alt" content="Curling Team Selector — draw random teams, no envelopes required." />
 
     <link rel="stylesheet" href="styles.css" />
+
+    <!-- Ahrefs Web Analytics — cookieless, IP-anonymised visit stats.
+         Loads async so it doesn't block first paint. -->
+    <script
+        src="https://analytics.ahrefs.com/analytics.js"
+        data-key="8KQvEHEFtS2yWZxHejRIWw"
+        async></script>
 
     <!-- Structured data: WebSite reference + AboutPage + BreadcrumbList -->
     <script type="application/ld+json">
@@ -97,7 +104,7 @@
                     </p>
                 </div>
             </div>
-            <div class="privacy-badge" title="All data stays in your browser. Nothing is uploaded or stored.">
+            <div class="privacy-badge" title="Your roster stays in your browser. Only anonymous, cookieless visit analytics leave the page — no personal data.">
                 🔒 100% local &amp; private
             </div>
         </div>
@@ -119,9 +126,16 @@
 
                 <h3>Privacy</h3>
                 <p>
-                    Everything runs in your browser. There is no server, no account, no
-                    database, no cookies, and no analytics. Refreshing the page erases every
-                    trace of the roster from your device.
+                    Your <strong>roster and team draws</strong> stay in your browser. There is
+                    no server, no account, no database, and no cookies. Refreshing the page
+                    erases every trace of your data from your device.
+                </p>
+                <p>
+                    The one exception is <a href="https://ahrefs.com/web-analytics" target="_blank" rel="noopener noreferrer">Ahrefs
+                    Web Analytics</a>, which counts page views so I can tell whether anyone is
+                    using the tool. It is <strong>cookieless</strong>, <strong>IP-anonymised</strong>,
+                    and doesn't identify individual visitors — no cross-site tracking, no
+                    ad targeting, and no roster data ever leaves your browser.
                 </p>
 
                 <h3>Importing from Excel or CSV</h3>
@@ -190,7 +204,7 @@
     <footer class="app-footer">
         <div class="container">
             <p>
-                Built for curling clubs. No accounts, no cookies, no tracking. Refresh the page to erase everything.
+                Built for curling clubs. No accounts. Your roster stays in your browser — refresh the page to erase it. Anonymous, cookieless visit analytics only.
                 &nbsp;·&nbsp;
                 <a href="index.html">Home</a>
             </p>
