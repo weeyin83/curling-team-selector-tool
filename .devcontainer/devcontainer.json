@@ -1,0 +1,79 @@
+// Dev container for the Curling Team Selector.
+//
+// This project is 100% static HTML/CSS/JS with no build step, so the
+// container is deliberately lightweight. It gives you:
+//   - A consistent Debian base for Codespaces / Docker Desktop / VS Code
+//     Dev Containers
+//   - The Live Server VS Code extension for one-click local preview
+//   - Node 20 (for optional tooling: prettier, http-server, etc.)
+//   - Python 3 (used only by the /scripts test-workbook helpers)
+//   - Sensible formatting and spell-check extensions
+//
+// See https://containers.dev/implementors/json_reference/ for the full
+// devcontainer.json schema.
+{
+    "name": "Curling Team Selector",
+    "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+
+    "features": {
+        "ghcr.io/devcontainers/features/python:1": {
+            "version": "3.12",
+            "installTools": false
+        },
+        "ghcr.io/devcontainers/features/git:1": {}
+    },
+
+    // Live Server (VS Code extension) defaults to port 5500. If you use
+    // `npx http-server` or `python -m http.server` you'll typically get
+    // 8080 or 8000 respectively — all three are pre-forwarded here.
+    "forwardPorts": [5500, 8080, 8000],
+    "portsAttributes": {
+        "5500": {
+            "label": "Live Server",
+            "onAutoForward": "openBrowser"
+        },
+        "8080": { "label": "http-server" },
+        "8000": { "label": "python -m http.server" }
+    },
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ritwickdey.LiveServer",
+                "ecmel.vscode-html-css",
+                "esbenp.prettier-vscode",
+                "streetsidesoftware.code-spell-checker",
+                "editorconfig.editorconfig",
+                "github.vscode-pull-request-github"
+            ],
+            "settings": {
+                "editor.tabSize": 4,
+                "editor.insertSpaces": true,
+                "editor.formatOnSave": false,
+                "files.trimTrailingWhitespace": true,
+                "files.insertFinalNewline": true,
+                "files.eol": "\n",
+                "liveServer.settings.donotShowInfoMsg": true,
+                "liveServer.settings.donotVerifyTags": true,
+                "liveServer.settings.port": 5500,
+                "liveServer.settings.root": "/",
+                "[html]": {
+                    "editor.defaultFormatter": "esbenp.prettier-vscode"
+                },
+                "[css]": {
+                    "editor.defaultFormatter": "esbenp.prettier-vscode"
+                },
+                "[javascript]": {
+                    "editor.defaultFormatter": "esbenp.prettier-vscode"
+                }
+            }
+        }
+    },
+
+    // Install openpyxl for the optional test-workbook helpers in
+    // scripts/. Safe to remove if you don't need those.
+    "postCreateCommand": "pip install --user --no-warn-script-location openpyxl >/dev/null 2>&1 || true",
+
+    // Use the standard non-root `node` user that ships in the base image.
+    "remoteUser": "node"
+}

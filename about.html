@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="About the Curling Team Selector — a private, in-browser tool for drawing random curling teams." />
+    <title>About · Curling Team Selector</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <header class="app-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon" aria-hidden="true">🥌</span>
+                <div>
+                    <h1>Curling Team Selector</h1>
+                    <p class="tagline">About this tool</p>
+                </div>
+            </div>
+            <div class="privacy-badge" title="All data stays in your browser. Nothing is uploaded or stored.">
+                🔒 100% local &amp; private
+            </div>
+        </div>
+    </header>
+
+    <main class="container app-main">
+        <section class="panel" aria-labelledby="about-heading">
+            <div class="panel-header">
+                <h2 id="about-heading">About</h2>
+            </div>
+
+            <div class="about-content">
+                <p>
+                    <strong>Curling Team Selector</strong> is a simple, mobile-friendly web app
+                    that replaces drawing names from an envelope at the curling club. Enter a
+                    roster of players once, click <em>Generate teams</em>, and get a full,
+                    randomised set of teams — each with a Skip, Third, Second, and Lead.
+                </p>
+
+                <h3>Privacy</h3>
+                <p>
+                    Everything runs in your browser. There is no server, no account, no
+                    database, no cookies, and no analytics. Refreshing the page erases every
+                    trace of the roster from your device.
+                </p>
+
+                <h3>Importing from Excel or CSV</h3>
+                <p>
+                    You can upload an <strong>.xlsx</strong> workbook or a <strong>.csv</strong>
+                    file with <code>Name</code> and <code>Position</code> columns. Each
+                    worksheet is treated as a separate competition or league — pick the ones
+                    you want to import, and duplicates across sheets are skipped automatically.
+                    The file is parsed entirely inside your browser and never uploaded anywhere.
+                </p>
+
+                <h3>Multiple competitions</h3>
+                <p>
+                    Curling clubs often run several competitions in the same season. The
+                    <strong>competition tabs</strong> inside the Teams panel let you keep each
+                    one separate — Trophy 1 draws its five teams from its own roster, while
+                    Trophy 2 draws its four teams independently. Switch tabs at any time; the
+                    rosters, drawn teams, and locks are kept per-tab.
+                </p>
+
+                <h3>Team sizes</h3>
+                <p>
+                    Every competition has its own team size. Pick 4-person (Skip · Third ·
+                    Second · Lead), 3-person triples (Skip · Third · Lead) or 2-person doubles
+                    (Player A · Player B) from the dropdown, and the draw will use only those
+                    positions.
+                </p>
+
+                <h3>How the draw works</h3>
+                <ul>
+                    <li>Each player has a <strong>primary</strong> position and an optional <strong>secondary</strong> position.</li>
+                    <li>Players marked as flexible can fill any position as a last resort.</li>
+                    <li>The generator runs 200 randomised passes and keeps the best-fitting draw — preferring primary matches first, then secondary, then flexible.</li>
+                    <li>Players marked as "played skip recently" are de-prioritised for the skip position.</li>
+                    <li>Team count is <code>floor(activePlayers / 4)</code>. Leftover players are listed as substitutes.</li>
+                </ul>
+
+                <h3>Locks and redraws</h3>
+                <p>
+                    After a draw you can lock an individual player to a slot, or lock an entire
+                    team so it stays intact. Clicking <em>Redraw</em> reshuffles everyone else
+                    around the locked players. You can also drag players between slots (or to
+                    and from the substitutes list) to fine-tune the results.
+                </p>
+
+                <h3>Printing</h3>
+                <p>
+                    Click <em>Print / Save as PDF</em> to produce a clean team sheet suitable
+                    for pinning to the club notice board or emailing out.
+                </p>
+
+                <h3>Built for curling clubs</h3>
+                <p>
+                    This tool is free to use and requires no installation — just open the page
+                    and start entering players. If your club finds it useful, that's the whole
+                    point.
+                </p>
+
+                <p class="about-back">
+                    <a href="index.html">← Back to the team selector</a>
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div class="container">
+            <p>
+                Built for curling clubs. No accounts, no cookies, no tracking. Refresh the page to erase everything.
+                &nbsp;·&nbsp;
+                <a href="index.html">Home</a>
+            </p>
+            <p class="built-by">
+                Built by <a href="https://sarahlean.com" target="_blank" rel="noopener noreferrer">Sarah Lean</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

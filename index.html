@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Randomly generate curling teams from a player roster. Works entirely in your browser — no data leaves your device." />
+    <title>Curling Team Selector</title>
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- =========================================================
+         Ahrefs Web Analytics (placeholder)
+         ---------------------------------------------------------
+         To enable, replace YOUR-AHREFS-KEY with the key from your
+         Ahrefs Web Analytics project and uncomment the script tag.
+         Note: enabling this contradicts the "no analytics / no
+         tracking" wording in the footer and About page — please
+         update that copy if you switch analytics on.
+         ========================================================= -->
+    <!--
+    <script
+        src="https://analytics.ahrefs.com/analytics.js"
+        data-key="YOUR-AHREFS-KEY"
+        async></script>
+    -->
+</head>
+<body>
+    <!-- ============================================================
+         HEADER
+         ============================================================ -->
+    <header class="app-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon" aria-hidden="true">🥌</span>
+                <div>
+                    <h1>Curling Team Selector</h1>
+                    <p class="tagline">Draw random teams — no envelopes required.</p>
+                </div>
+            </div>
+            <div class="privacy-badge" title="All data stays in your browser. Nothing is uploaded or stored.">
+                🔒 100% local &amp; private
+            </div>
+        </div>
+    </header>
+
+    <main class="container app-main">
+
+        <!-- ============================================================
+             SECTION: Player Roster
+             ============================================================ -->
+        <section class="panel" id="roster-panel" aria-labelledby="roster-heading">
+            <div class="panel-header">
+                <h2 id="roster-heading">1 · Player Roster</h2>
+                <span class="counter" id="player-counter" aria-live="polite">0 players</span>
+            </div>
+
+            <!-- Single-player entry form -->
+            <form id="player-form" class="player-form" autocomplete="off">
+                <div class="form-row">
+                    <label class="field field-grow">
+                        <span>Player name</span>
+                        <input type="text" id="player-name" placeholder="e.g. John" required maxlength="40" />
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label class="field">
+                        <span>Primary position <em>*</em></span>
+                        <select id="primary-position" required>
+                            <option value="skip">Skip</option>
+                            <option value="third">Third</option>
+                            <option value="second">Second</option>
+                            <option value="lead">Lead</option>
+                        </select>
+                    </label>
+
+                    <label class="field">
+                        <span>Secondary position</span>
+                        <select id="secondary-position">
+                            <option value="">— none —</option>
+                            <option value="skip">Skip</option>
+                            <option value="third">Third</option>
+                            <option value="second">Second</option>
+                            <option value="lead">Lead</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="form-row form-row-flags">
+                    <label class="checkbox">
+                        <input type="checkbox" id="flexible" />
+                        <span>Can play <strong>any</strong> position (used as last resort)</span>
+                    </label>
+                    <label class="checkbox">
+                        <input type="checkbox" id="skip-recently" />
+                        <span>Played skip recently (lower skip priority)</span>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">➕ Add player</button>
+                    <button type="button" class="btn btn-ghost" id="bulk-toggle">Bulk paste…</button>
+                    <button type="button" class="btn btn-ghost" id="import-toggle">📄 Import Excel / CSV…</button>
+                </div>
+            </form>
+
+            <!-- Bulk paste panel -->
+            <div class="bulk-panel hidden" id="bulk-panel">
+                <p class="hint">
+                    Paste one player per line. Format:
+                    <code>Name, primary, secondary, flags</code>
+                    (secondary and flags are optional). Flags: <code>flex</code>, <code>recent</code>.
+                    Example: <code>Sarah, third, skip, flex</code>
+                </p>
+                <textarea id="bulk-input" rows="6"
+                    placeholder="John, skip
+Sarah, third, skip
+Mike, second, , flex
+Emma, lead, , recent"></textarea>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary" id="bulk-add">Add all</button>
+                    <button type="button" class="btn btn-ghost" id="bulk-cancel">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Import from Excel / CSV panel -->
+            <div class="bulk-panel hidden" id="import-panel">
+                <p class="hint">
+                    Import players from an <strong>Excel workbook (.xlsx)</strong> or
+                    <strong>CSV (.csv)</strong> file. Each sheet is treated as a competition
+                    or league. The file must have <code>Name</code> and <code>Position</code>
+                    columns (extra columns are ignored). Positions are matched
+                    case-insensitively to <em>skip / third / second / lead</em>.
+                </p>
+                <p class="hint">
+                    Leave the <code>Position</code> cell blank, or type <code>any</code>
+                    (also <code>flex</code>, <code>flexible</code>, <code>anywhere</code>, or
+                    <code>*</code>) for a player who can be placed in any position.
+                </p>
+                <p class="hint">
+                    Select one sheet to add its players to the currently active tab, or select
+                    multiple sheets to create <strong>a separate competition tab for each
+                    sheet</strong> — so Trophy 1 and Trophy 2 stay as independent draws.
+                </p>
+                <p class="hint">
+                    Everything is parsed <strong>locally in your browser</strong> — the file
+                    is never uploaded anywhere.
+                </p>
+
+                <input type="file" id="import-file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+
+                <div class="import-preview hidden" id="import-preview">
+                    <div class="import-sheet-picker" id="import-sheet-picker"></div>
+
+                    <div class="import-options">
+                        <label class="checkbox">
+                            <input type="checkbox" id="import-dedupe-roster" checked />
+                            <span>When importing into the active tab, skip names that are already there</span>
+                        </label>
+                    </div>
+
+                    <div class="import-preview-summary" id="import-preview-summary"></div>
+
+                    <div class="import-preview-table-wrap">
+                        <table class="import-preview-table" id="import-preview-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Sheet</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="feedback" id="import-feedback" role="status" aria-live="polite"></div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary" id="import-add" disabled>Add players</button>
+                    <button type="button" class="btn btn-ghost" id="import-cancel">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Player list -->
+            <div class="player-list-wrapper">
+                <ul class="player-list" id="player-list" aria-label="Player roster"></ul>
+                <p class="empty-state" id="player-empty">No players yet. Add some above to get started.</p>
+            </div>
+
+            <div class="roster-actions">
+                <button type="button" class="btn btn-danger btn-small" id="clear-players">Clear all players</button>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             SECTION: Team Generation
+             ============================================================ -->
+        <section class="panel" id="teams-panel" aria-labelledby="teams-heading">
+            <div class="panel-header">
+                <h2 id="teams-heading">2 · Teams</h2>
+                <span class="counter" id="team-summary" aria-live="polite">No draw yet</span>
+            </div>
+
+            <!-- Competition tabs (each tab = one draw / roster) -->
+            <div class="competitions-block hidden" id="competitions-block">
+                <div class="competitions-header">
+                    <span class="competitions-label">Competition:</span>
+                    <span class="competitions-hint" id="competitions-hint">Click a tab to switch between draws</span>
+                </div>
+                <nav class="competitions-tabs" id="competitions-tabs" aria-label="Competitions"></nav>
+            </div>
+
+            <!-- Team size -->
+            <div class="team-size-row">
+                <label class="team-size-label" for="team-size">
+                    <span>Team size:</span>
+                </label>
+                <select id="team-size" class="team-size-select">
+                    <option value="4">4-person — Skip, Third, Second, Lead</option>
+                    <option value="3">3-person — Skip, Third, Lead</option>
+                    <option value="2">2-person — Player A, Player B</option>
+                </select>
+                <span class="hint team-size-hint" id="team-size-hint"></span>
+            </div>
+
+            <div class="team-controls">
+                <button type="button" class="btn btn-primary btn-large" id="generate-btn">
+                    🎲 Generate teams
+                </button>
+                <button type="button" class="btn btn-secondary" id="redraw-btn" disabled>
+                    🔄 Redraw (respect locks)
+                </button>
+                <button type="button" class="btn btn-ghost" id="print-btn" disabled>
+                    🖨️ Print / Save as PDF
+                </button>
+                <button type="button" class="btn btn-danger btn-small" id="reset-btn" title="Clears the players and teams for the current competition tab only">
+                    🗑️ Reset this tab
+                </button>
+                <button type="button" class="btn btn-danger btn-small" id="reset-all-btn" title="Delete every competition and every player, start from a blank page">
+                    💥 Reset everything
+                </button>
+            </div>
+
+            <!-- Drawing animation overlay -->
+            <div class="draw-overlay hidden" id="draw-overlay" aria-hidden="true">
+                <div class="hat">
+                    <div class="hat-brim"></div>
+                    <div class="hat-body">
+                        <span class="draw-name" id="draw-name">…</span>
+                    </div>
+                </div>
+                <p class="draw-caption">Drawing names…</p>
+            </div>
+
+            <!-- Feedback / warnings -->
+            <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+
+            <!-- Generated teams -->
+            <div class="teams-grid" id="teams-grid"></div>
+
+            <!-- Substitutes -->
+            <div class="subs-section hidden" id="subs-section">
+                <h3>Substitutes</h3>
+                <p class="hint">Players who couldn't be placed on a complete team this draw.</p>
+                <ul class="subs-list" id="subs-list"></ul>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div class="container">
+            <p>
+                Built for curling clubs. No accounts, no cookies, no tracking. Refresh the page to erase everything.
+                &nbsp;·&nbsp;
+                <a href="about.html">About</a>
+            </p>
+            <p class="built-by">
+                Built by <a href="https://sarahlean.com" target="_blank" rel="noopener noreferrer">Sarah Lean</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Edit-player modal -->
+    <div class="modal hidden" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+        <div class="modal-content">
+            <h3 id="edit-modal-title">Edit player</h3>
+            <form id="edit-form">
+                <label class="field">
+                    <span>Name</span>
+                    <input type="text" id="edit-name" required maxlength="40" />
+                </label>
+                <div class="form-row">
+                    <label class="field">
+                        <span>Primary</span>
+                        <select id="edit-primary" required>
+                            <option value="skip">Skip</option>
+                            <option value="third">Third</option>
+                            <option value="second">Second</option>
+                            <option value="lead">Lead</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Secondary</span>
+                        <select id="edit-secondary">
+                            <option value="">— none —</option>
+                            <option value="skip">Skip</option>
+                            <option value="third">Third</option>
+                            <option value="second">Second</option>
+                            <option value="lead">Lead</option>
+                        </select>
+                    </label>
+                </div>
+                <label class="checkbox">
+                    <input type="checkbox" id="edit-flexible" />
+                    <span>Can play any position</span>
+                </label>
+                <label class="checkbox">
+                    <input type="checkbox" id="edit-skip-recently" />
+                    <span>Played skip recently</span>
+                </label>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" class="btn btn-ghost" id="edit-cancel">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
