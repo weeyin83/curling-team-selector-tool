@@ -130,6 +130,13 @@ h3 {
         grid-template-columns: minmax(360px, 5fr) 7fr;
         align-items: start;
     }
+
+    /* Pages with a single panel (e.g. About) should span the full
+       container width, not sit squashed into the left column of the
+       two-column layout. */
+    .app-main.app-main-single {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* ---------- Competition tabs (nested inside the Teams panel) ---------- */
@@ -1205,7 +1212,9 @@ textarea {
 /* ---------- About page ---------- */
 .about-content {
     padding: 4px 4px 8px;
-    max-width: 780px;
+    /* Keep line-length readable even when the panel spans the
+       full container width. */
+    max-width: 68ch;
     color: var(--ink-soft);
 }
 

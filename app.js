@@ -286,12 +286,19 @@
         const name = (data.name || '').trim();
         if (!name) return null;
 
+        const validPrimary = POSITIONS.includes(data.primary);
+        const flexible = !!data.flexible;
+
         const player = {
             id: uid(),
             name,
-            primary: POSITIONS.includes(data.primary) ? data.primary : 'lead',
+            // Empty primary is allowed ONLY when the player is flexible —
+            // it means "no primary preference; place anywhere". If a
+            // non-flexible player is given an invalid position we fall
+            // back to 'lead' so they can still be drawn.
+            primary: validPrimary ? data.primary : (flexible ? '' : 'lead'),
             secondary: POSITIONS.includes(data.secondary) ? data.secondary : '',
-            flexible: !!data.flexible,
+            flexible,
             skipRecently: !!data.skipRecently,
             excluded: !!data.excluded
         };
@@ -334,7 +341,9 @@
     /* -----------------------------------------------------------------
      * Bulk paste parser
      *   Line format:  name, primary, secondary, flags...
-     *   Flags:        flex, recent
+     *   Primary:      skip / third / second / lead, OR
+     *                 blank / any / flex / flexible / * → flexible-only
+     *   Flags:        flex (or any / flexible / anywhere / *), recent
      * ----------------------------------------------------------------- */
     function parseBulk(text) {
         const rows = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
@@ -346,17 +355,28 @@
             const name = parts[0];
             if (!name) return;
 
-            const primary = (parts[1] || 'lead').toLowerCase();
-            if (!POSITIONS.includes(primary)) {
-                errors.push(`Line ${idx + 1}: unknown primary "${primary}"`);
-                return;
-            }
+            // Reuse the same position parser as the import path so that
+            // blank / any / flex / flexible / * all become flexible-only.
+            const { position: primaryFromField, flexible: flexFromField } =
+                normalisePosition(parts[1] || '');
             const secondaryRaw = (parts[2] || '').toLowerCase();
             const secondary = POSITIONS.includes(secondaryRaw) ? secondaryRaw : '';
 
             const flags = parts.slice(3).map(f => f.toLowerCase());
-            const flexible = flags.includes('flex') || flags.includes('any') || flags.includes('flexible');
+            const flagFlex = flags.includes('flex') || flags.includes('any')
+                || flags.includes('flexible') || flags.includes('anywhere')
+                || flags.includes('*');
             const skipRecently = flags.includes('recent') || flags.includes('recentskip');
+
+            // If a value was supplied but wasn't recognised, warn.
+            const primaryFieldGiven = !!(parts[1] && parts[1].trim());
+            if (primaryFieldGiven && !primaryFromField && !flexFromField) {
+                errors.push(`Line ${idx + 1}: unknown primary "${parts[1]}"`);
+                return;
+            }
+
+            const flexible = flagFlex || flexFromField;
+            const primary = primaryFromField;   // '' when flexible-only
 
             const player = addPlayer({ name, primary, secondary, flexible, skipRecently });
             if (player) added.push(player);
@@ -942,11 +962,14 @@
                     target.players.push({
                         id: uid(),
                         name: row.name,
-                        // Flexible-only rows (blank / "any" position) get
-                        // a placeholder primary so the roster form still
-                        // has something valid to display; the flexible
-                        // flag makes the generator use tier-3 fallback.
-                        primary: row.position || 'lead',
+                        // Flexible-only rows (blank / "any" position)
+                        // are stored with an empty primary — the
+                        // flexible flag alone tells the generator to
+                        // place them via tier-3 fallback. Previously
+                        // we defaulted primary to 'lead' as a
+                        // placeholder, which incorrectly showed a
+                        // "Lead" tag next to their name in the roster.
+                        primary: row.position,
                         secondary: '',
                         flexible: !!row.flexible,
                         skipRecently: false,
@@ -967,7 +990,7 @@
             willAdd.forEach(row => {
                 addPlayer({
                     name: row.name,
-                    primary: row.position || 'lead',
+                    primary: row.position,
                     secondary: '',
                     flexible: !!row.flexible,
                     skipRecently: false
@@ -1429,11 +1452,16 @@
             const posEl = document.createElement('div');
             posEl.className = 'player-positions';
 
-            const primaryTag = document.createElement('span');
-            primaryTag.className = 'pos-tag primary-tag';
-            primaryTag.textContent = POSITION_LABELS[player.primary];
-            primaryTag.title = 'Primary position';
-            posEl.appendChild(primaryTag);
+            // Only render the primary tag when the player actually has
+            // one. Flexible-only players (imported as "any" or blank)
+            // have primary === '' — they should show just the ANY tag.
+            if (player.primary && POSITION_LABELS[player.primary]) {
+                const primaryTag = document.createElement('span');
+                primaryTag.className = 'pos-tag primary-tag';
+                primaryTag.textContent = POSITION_LABELS[player.primary];
+                primaryTag.title = 'Primary position';
+                posEl.appendChild(primaryTag);
+            }
 
             if (player.secondary) {
                 const secTag = document.createElement('span');
@@ -1563,7 +1591,9 @@
                 const chip = document.createElement('li');
                 chip.className = 'sub-chip';
                 chip.textContent = player.name;
-                chip.title = `Primary: ${POSITION_LABELS[player.primary]}`;
+                chip.title = player.primary && POSITION_LABELS[player.primary]
+                    ? `Primary: ${POSITION_LABELS[player.primary]}`
+                    : 'Any position';
                 chip.draggable = true;
                 chip.dataset.playerId = player.id;
                 chip.dataset.dragSource = 'sub';
@@ -1987,7 +2017,9 @@
         if (!player) return;
         state.editingId = id;
         ui.editName.value = player.name;
-        ui.editPrimary.value = player.primary;
+        // Show the "— any (no preference) —" option when the player has
+        // no stored primary position (imported / bulk-added as "any").
+        ui.editPrimary.value = player.primary || 'any';
         ui.editSecondary.value = player.secondary || '';
         ui.editFlexible.checked = player.flexible;
         ui.editSkipRecent.checked = player.skipRecently;
@@ -2108,11 +2140,16 @@
         ui.editForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (!state.editingId) return;
+            // The "— any (no preference) —" option stores primary as ''
+            // and forces flexible=true, so the player can still be
+            // drawn but doesn't show a bogus position tag.
+            const primaryValue = ui.editPrimary.value;
+            const isAny = primaryValue === 'any' || primaryValue === '';
             updatePlayer(state.editingId, {
                 name: ui.editName.value.trim(),
-                primary: ui.editPrimary.value,
+                primary: isAny ? '' : primaryValue,
                 secondary: ui.editSecondary.value,
-                flexible: ui.editFlexible.checked,
+                flexible: isAny ? true : ui.editFlexible.checked,
                 skipRecently: ui.editSkipRecent.checked
             });
             closeEditModal();
