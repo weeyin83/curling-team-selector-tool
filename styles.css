@@ -1127,6 +1127,81 @@ textarea {
     color: var(--muted);
 }
 
+/* ---------- Floating "say thanks" pill ---------- */
+.thanks-pill {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px 10px 14px;
+    background: linear-gradient(135deg, #ffdd7a 0%, #ffb84d 60%, #ff9a3c 100%);
+    color: #4a2a06;
+    text-decoration: none;
+    font-family: inherit;
+    font-size: 0.85rem;
+    line-height: 1.15;
+    font-weight: 500;
+    border-radius: 999px;
+    box-shadow: 0 6px 18px rgba(180, 100, 20, 0.35);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.thanks-pill:hover,
+.thanks-pill:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(180, 100, 20, 0.45);
+    color: #3a1e02;
+    text-decoration: none;
+    outline: none;
+}
+
+.thanks-pill:focus-visible {
+    box-shadow: 0 8px 22px rgba(180, 100, 20, 0.45),
+        0 0 0 3px rgba(11, 92, 255, 0.35);
+}
+
+.thanks-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
+}
+
+.thanks-label {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.1;
+    font-size: 0.78rem;
+    color: rgba(74, 42, 6, 0.85);
+}
+
+.thanks-label strong {
+    color: #3a1e02;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+/* On narrow screens keep just the icon + short label to save room. */
+@media (max-width: 480px) {
+    .thanks-pill {
+        right: 12px;
+        bottom: 12px;
+        padding: 8px 12px;
+    }
+
+    .thanks-label {
+        font-size: 0;
+    }
+
+    .thanks-label strong {
+        font-size: 0.85rem;
+    }
+}
+
 /* ---------- About page ---------- */
 .about-content {
     padding: 4px 4px 8px;
@@ -1210,6 +1285,7 @@ textarea {
     .slot-tier,
     .feedback,
     .draw-overlay,
+    .thanks-pill,
     .modal {
         display: none !important;
     }

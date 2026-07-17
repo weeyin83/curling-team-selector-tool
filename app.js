@@ -1828,20 +1828,34 @@
         const shuffled = shuffle(names.slice());
         const totalDuration = 1500; // ms
         const flickerInterval = 80;
-        let elapsed = 0;
+        // Use real wall-clock time (not a per-tick counter) so the
+        // animation completes correctly even when the browser throttles
+        // background tabs — otherwise a backgrounded page would leave
+        // the overlay stuck and never fire the draw callback.
+        const startTime = Date.now();
         let idx = 0;
+        let finished = false;
+
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            clearInterval(timer);
+            ui.drawOverlay.classList.add('hidden');
+            ui.drawOverlay.setAttribute('aria-hidden', 'true');
+            done();
+        };
 
         const timer = setInterval(() => {
             ui.drawName.textContent = shuffled[idx % shuffled.length];
             idx++;
-            elapsed += flickerInterval;
-            if (elapsed >= totalDuration) {
-                clearInterval(timer);
-                ui.drawOverlay.classList.add('hidden');
-                ui.drawOverlay.setAttribute('aria-hidden', 'true');
-                done();
-            }
+            if (Date.now() - startTime >= totalDuration) finish();
         }, flickerInterval);
+
+        // Belt-and-braces: guarantee the callback fires even if the
+        // interval is severely throttled (background tabs). At worst
+        // the animation stops looking like it's flickering, but the
+        // draw still completes on time.
+        setTimeout(finish, totalDuration + 50);
     }
 
     /* -----------------------------------------------------------------
@@ -1849,8 +1863,18 @@
      * ----------------------------------------------------------------- */
 
     function doGenerate(respectLocks) {
-        const active = state.players.filter(p => !p.excluded);
-        const teamSize = activeTeamSize();
+        // Pin the target competition at click time. The draw animation
+        // is asynchronous, so if the user switches tabs while it plays
+        // we still need to write the result back to THIS competition —
+        // never to whichever tab happens to be active when the timer
+        // fires. Without this the generator would silently share data
+        // between competitions.
+        const targetComp = activeCompetition();
+        if (!targetComp) return;
+        const targetId = targetComp.id;
+
+        const active = targetComp.players.filter(p => !p.excluded);
+        const teamSize = targetComp.teamSize;
         if (active.length < teamSize) {
             setFeedback(
                 `Add at least ${teamSize} active players to draw a ${teamSize}-person team (have ${active.length}).`,
@@ -1861,23 +1885,45 @@
 
         const names = active.map(p => p.name);
         playDrawAnimation(names, () => {
-            const result = generateTeams({ respectLocks });
-            state.teams = result.teams;
-            state.substitutes = result.substitutes;
+            // Temporarily point the active-competition shim at the
+            // captured target so generateTeams() reads and writes the
+            // correct roster / locks, regardless of what tab the user
+            // is currently looking at. We restore state.activeId
+            // straight away so rendering below reflects whichever tab
+            // they're actually viewing.
+            const wasActive = state.activeId;
+            state.activeId = targetId;
+            let result;
+            try {
+                result = generateTeams({ respectLocks });
+                targetComp.teams = result.teams;
+                targetComp.substitutes = result.substitutes;
+            } finally {
+                state.activeId = wasActive;
+            }
+
+            const stillOnTarget = state.activeId === targetId;
+            const forLabel = stillOnTarget ? '' : ` for "${targetComp.name}"`;
+
             if (result.warning) {
-                setFeedback(result.warning, 'warning');
+                setFeedback(result.warning + (stillOnTarget ? '' : `${forLabel}.`), 'warning');
             } else if (result.substitutes.length > 0) {
                 setFeedback(
-                    `${result.teams.length} team${result.teams.length === 1 ? '' : 's'} drawn. ` +
+                    `${result.teams.length} team${result.teams.length === 1 ? '' : 's'} drawn${forLabel}. ` +
                     `${result.substitutes.length} player${result.substitutes.length === 1 ? '' : 's'} listed as substitute${result.substitutes.length === 1 ? '' : 's'}.`,
                     ''
                 );
             } else {
-                setFeedback(`${result.teams.length} team${result.teams.length === 1 ? '' : 's'} drawn — everyone placed!`, '');
+                setFeedback(
+                    `${result.teams.length} team${result.teams.length === 1 ? '' : 's'} drawn${forLabel} — everyone placed!`,
+                    ''
+                );
             }
+
             renderTeams();
-            // Scroll to teams on mobile
-            if (window.matchMedia('(max-width: 899px)').matches) {
+            // Scroll to teams on mobile only if the drawn tab is still
+            // the one the user is looking at.
+            if (stillOnTarget && window.matchMedia('(max-width: 899px)').matches) {
                 document.getElementById('teams-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         });
