@@ -1624,13 +1624,28 @@
             nameEl.textContent = player ? player.name : '— empty —';
             slotEl.appendChild(nameEl);
 
-            // Tier badge
-            if (slot.tier > 0 && player) {
+            // Position-match badge.
+            //
+            // The generator scores each placement by "tier":
+            //   1 = player's primary position
+            //   2 = player's secondary position
+            //   3 = flexible / any-position fallback
+            //
+            // Tier 1 is the expected happy path, so we don't clutter
+            // the card with a badge for it — the badge only appears
+            // when the draw had to compromise, which is the case
+            // organisers actually want to notice.
+            if (slot.tier === 2 && player) {
                 const tierEl = document.createElement('span');
-                tierEl.className = 'slot-tier tier-' + slot.tier;
-                tierEl.textContent = slot.tier === 1 ? 'primary'
-                    : slot.tier === 2 ? 'secondary' : 'any';
-                tierEl.title = 'Position match';
+                tierEl.className = 'slot-tier tier-2';
+                tierEl.textContent = '2nd choice';
+                tierEl.title = `${player.name}'s primary position wasn't available, so they've been placed in their secondary.`;
+                slotEl.appendChild(tierEl);
+            } else if (slot.tier === 3 && player) {
+                const tierEl = document.createElement('span');
+                tierEl.className = 'slot-tier tier-3';
+                tierEl.textContent = 'any';
+                tierEl.title = `${player.name} is marked as flexible and was placed here to complete the team — this isn't a preferred position.`;
                 slotEl.appendChild(tierEl);
             }
 
