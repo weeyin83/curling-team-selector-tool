@@ -214,6 +214,7 @@
         generateBtn: document.getElementById('generate-btn'),
         redrawBtn: document.getElementById('redraw-btn'),
         printBtn: document.getElementById('print-btn'),
+        copyBtn: document.getElementById('copy-btn'),
         resetBtn: document.getElementById('reset-btn'),
         resetAllBtn: document.getElementById('reset-all-btn'),
         teamsGrid: document.getElementById('teams-grid'),
@@ -1563,6 +1564,7 @@
             ui.teamSummary.textContent = 'No draw yet' + compLabel;
             ui.redrawBtn.disabled = true;
             ui.printBtn.disabled = true;
+            if (ui.copyBtn) ui.copyBtn.disabled = true;
             ui.subsSection.classList.add('hidden');
             return;
         }
@@ -1576,6 +1578,7 @@
 
         ui.redrawBtn.disabled = false;
         ui.printBtn.disabled = false;
+        if (ui.copyBtn) ui.copyBtn.disabled = false;
 
         state.teams.forEach((team, teamIdx) => {
             grid.appendChild(renderTeamCard(team, teamIdx));
@@ -1959,6 +1962,129 @@
         });
     }
 
+    /* -----------------------------------------------------------------
+     * Copy teams as plain text
+     * ----------------------------------------------------------------- */
+
+    /**
+     * Build a plain-text representation of the current competition's
+     * draw. Designed to paste cleanly into WhatsApp, email, a Word
+     * document, notes app etc. — no emoji-heavy noise, no icons that
+     * won't render, position names padded so a proportional-font
+     * reader can still follow it.
+     */
+    function buildTeamsText() {
+        if (!state.teams || state.teams.length === 0) return '';
+
+        const comp = activeCompetition();
+        const teamSize = activeTeamSize();
+        const positions = activePositions();
+        const positionLabels = positions.map(p => positionLabel(p, teamSize));
+        // Pad position labels so the ":" column lines up when read in
+        // any font that gives us a rough sense of alignment.
+        const labelPad = Math.max(...positionLabels.map(l => l.length));
+
+        const lines = [];
+
+        // Header
+        const title = comp && comp.name && comp.name !== 'Untitled'
+            ? `Curling teams — ${comp.name}`
+            : 'Curling teams';
+        lines.push(title);
+        lines.push('='.repeat(title.length));
+        lines.push('');
+
+        // Teams
+        state.teams.forEach(team => {
+            let header = `Team ${team.number}`;
+            if (team.locked) header += ' (locked)';
+            lines.push(header);
+            positions.forEach((pos, i) => {
+                const slot = team.slots[pos];
+                const player = slot && slot.playerId ? getPlayer(slot.playerId) : null;
+                const name = player ? player.name : '—';
+                const label = positionLabels[i].padEnd(labelPad, ' ');
+                lines.push(`  ${label} : ${name}`);
+            });
+            lines.push('');
+        });
+
+        // Substitutes
+        if (state.substitutes.length > 0) {
+            const subNames = state.substitutes
+                .map(id => getPlayer(id))
+                .filter(Boolean)
+                .map(p => p.name);
+            lines.push('Substitutes: ' + subNames.join(', '));
+            lines.push('');
+        }
+
+        // Trim trailing blank line
+        while (lines.length && lines[lines.length - 1] === '') lines.pop();
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Copy the current draw to the clipboard. Uses the modern async
+     * clipboard API where available, falling back to a hidden textarea
+     * + document.execCommand('copy') on older browsers or file:// URLs
+     * where writeText may be blocked.
+     */
+    async function doCopyTeams() {
+        const text = buildTeamsText();
+        if (!text) return;
+
+        let ok = false;
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                ok = true;
+            }
+        } catch (_) {
+            ok = false;
+        }
+        if (!ok) {
+            // Fallback for restricted contexts (e.g. some file:// pages)
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.top = '-1000px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                ok = document.execCommand('copy');
+            } catch (_) {
+                ok = false;
+            }
+            document.body.removeChild(ta);
+        }
+
+        // Feedback: flash the button label and use the shared feedback
+        // area so it's noticed even if the user isn't looking at the
+        // corner of the screen.
+        if (ok) {
+            flashCopyButton('✅ Copied!');
+            setFeedback('Teams copied to clipboard — paste them into WhatsApp, an email, or a document.', '');
+        } else {
+            flashCopyButton('⚠️ Copy failed');
+            setFeedback('Could not copy automatically. Select the teams on-screen and press Ctrl+C / Cmd+C.', 'warning');
+        }
+    }
+
+    function flashCopyButton(msg) {
+        if (!ui.copyBtn) return;
+        const original = ui.copyBtn.textContent;
+        ui.copyBtn.textContent = msg;
+        ui.copyBtn.disabled = true;
+        setTimeout(() => {
+            ui.copyBtn.textContent = original;
+            ui.copyBtn.disabled = !state.teams || state.teams.length === 0;
+        }, 1600);
+    }
+
     function doReset() {
         if (state.players.length === 0 && !state.teams) return;
         const comp = activeCompetition();
@@ -2114,6 +2240,7 @@
         ui.resetBtn.addEventListener('click', doReset);
         if (ui.resetAllBtn) ui.resetAllBtn.addEventListener('click', doResetEverything);
         ui.printBtn.addEventListener('click', () => window.print());
+        if (ui.copyBtn) ui.copyBtn.addEventListener('click', doCopyTeams);
 
         // Team size — per-competition setting. Changing it invalidates
         // any current draw (positions differ), so we clear teams.
