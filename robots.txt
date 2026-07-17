@@ -3,4 +3,4 @@ Allow: /
 
 # Point crawlers at the canonical sitemap. Replace the host below
 # with your production domain once it's live.
-Sitemap: https://REPLACE-WITH-YOUR-DOMAIN.example/sitemap.xml
+Sitemap: https://www.rinkdraw.com/sitemap.xml
