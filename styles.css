@@ -1213,8 +1213,11 @@ textarea {
 .about-content {
     padding: 4px 4px 8px;
     /* Keep line-length readable even when the panel spans the
-       full container width. */
+       full container width, and centre the column horizontally
+       so it sits in the middle rather than hugging the left edge. */
     max-width: 68ch;
+    margin-left: auto;
+    margin-right: auto;
     color: var(--ink-soft);
 }
 
