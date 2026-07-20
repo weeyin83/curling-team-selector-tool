@@ -14,6 +14,12 @@
 (function () {
     'use strict';
 
+    // Pure helpers loaded from lib/experience.js (dual-exported browser
+    // global). Loaded before app.js via <script defer>, so it's always
+    // present when we hit this line. Kept as a local ref so the rest of
+    // the file doesn't need to spell out `window.RinkDrawExperience`.
+    const RDX = (typeof window !== 'undefined' && window.RinkDrawExperience) || null;
+
     /* -----------------------------------------------------------------
      * Constants
      * ----------------------------------------------------------------- */
@@ -105,7 +111,19 @@
             players: [],
             teams: null,
             substitutes: [],
-            teamSize: DEFAULT_TEAM_SIZE
+            teamSize: DEFAULT_TEAM_SIZE,
+            // How teams are balanced when generating: 'position' (the
+            // historical default — pack each team's Skip/Third/Second/
+            // Lead from players whose preferred position matches) or
+            // 'experience' (form teams with roughly equal total
+            // experience, then place positions within each team).
+            balanceMode: 'position',
+            // The balance mode that produced the currently displayed
+            // draw. Recorded when teams are generated so the team
+            // cards can render the correct badge (e.g. "EXP N" in
+            // experience mode vs "any" in position mode) even if the
+            // user toggles the mode afterwards.
+            drawMode: null
         };
     }
 
@@ -153,6 +171,12 @@
      * @property {boolean} flexible      - eligible for any position (last resort)
      * @property {boolean} skipRecently  - deprioritise for skip
      * @property {boolean} excluded      - skip this player during draws
+     * @property {number|null} [experienceLevel] - optional 1..10 skill rating
+     *   (1 = beginner, 10 = advanced / professional). `null` or missing
+     *   means "not specified"; the balancing algorithm treats missing
+     *   values as the median of 5 so unrated players don't skew totals.
+     *   The historical position-based algorithm ignores this field
+     *   entirely, preserving full backward compatibility.
      */
 
     /**
@@ -189,6 +213,9 @@
         secondarySelect: document.getElementById('secondary-position'),
         flexibleInput: document.getElementById('flexible'),
         skipRecentInput: document.getElementById('skip-recently'),
+        experienceToggle: document.getElementById('experience-toggle'),
+        experienceInput: document.getElementById('experience-level'),
+        experienceValue: document.getElementById('experience-value'),
         bulkToggle: document.getElementById('bulk-toggle'),
         bulkPanel: document.getElementById('bulk-panel'),
         bulkInput: document.getElementById('bulk-input'),
@@ -224,6 +251,9 @@
         subsList: document.getElementById('subs-list'),
         drawOverlay: document.getElementById('draw-overlay'),
         drawName: document.getElementById('draw-name'),
+        balanceModePosition: document.getElementById('balance-mode-position'),
+        balanceModeExperience: document.getElementById('balance-mode-experience'),
+        balanceModeHint: document.getElementById('balance-mode-hint'),
 
         // Edit modal
         editModal: document.getElementById('edit-modal'),
@@ -233,6 +263,9 @@
         editSecondary: document.getElementById('edit-secondary'),
         editFlexible: document.getElementById('edit-flexible'),
         editSkipRecent: document.getElementById('edit-skip-recently'),
+        editExperienceToggle: document.getElementById('edit-experience-toggle'),
+        editExperienceInput: document.getElementById('edit-experience-level'),
+        editExperienceValue: document.getElementById('edit-experience-value'),
         editCancel: document.getElementById('edit-cancel')
     };
 
@@ -290,6 +323,13 @@
         const validPrimary = POSITIONS.includes(data.primary);
         const flexible = !!data.flexible;
 
+        // Experience is optional and stored as an integer 1..10 or
+        // null. Anything unrecognised is coerced to null so the field
+        // is either a valid rating or explicitly absent.
+        const experienceLevel = RDX
+            ? RDX.validateExperience(data.experienceLevel)
+            : null;
+
         const player = {
             id: uid(),
             name,
@@ -301,7 +341,8 @@
             secondary: POSITIONS.includes(data.secondary) ? data.secondary : '',
             flexible,
             skipRecently: !!data.skipRecently,
-            excluded: !!data.excluded
+            excluded: !!data.excluded,
+            experienceLevel
         };
 
         // Primary and secondary must differ; if they collide, clear secondary
@@ -320,6 +361,14 @@
     function updatePlayer(id, data) {
         const player = getPlayer(id);
         if (!player) return;
+        // Normalise experienceLevel if the caller supplied it. Passing
+        // `null` explicitly clears the rating; leaving the property out
+        // preserves it.
+        if (Object.prototype.hasOwnProperty.call(data, 'experienceLevel')) {
+            data.experienceLevel = RDX
+                ? RDX.validateExperience(data.experienceLevel)
+                : null;
+        }
         Object.assign(player, data);
         if (player.secondary === player.primary) player.secondary = '';
         clearTeams();
@@ -335,16 +384,21 @@
     function clearTeams() {
         state.teams = null;
         state.substitutes = [];
+        const c = activeCompetition();
+        if (c) c.drawMode = null;
         setFeedback('');
         renderTeams();
     }
 
     /* -----------------------------------------------------------------
      * Bulk paste parser
-     *   Line format:  name, primary, secondary, flags...
+     *   Line format:  name, primary, secondary, flags, experience
      *   Primary:      skip / third / second / lead, OR
      *                 blank / any / flex / flexible / * → flexible-only
      *   Flags:        flex (or any / flexible / anywhere / *), recent
+     *   Experience:   optional integer 1..10, or prefixed form (exp:7,
+     *                 level=3, skill:9). If none of the trailing fields
+     *                 parse as experience, none is recorded.
      * ----------------------------------------------------------------- */
     function parseBulk(text) {
         const rows = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
@@ -363,11 +417,26 @@
             const secondaryRaw = (parts[2] || '').toLowerCase();
             const secondary = POSITIONS.includes(secondaryRaw) ? secondaryRaw : '';
 
-            const flags = parts.slice(3).map(f => f.toLowerCase());
-            const flagFlex = flags.includes('flex') || flags.includes('any')
-                || flags.includes('flexible') || flags.includes('anywhere')
-                || flags.includes('*');
-            const skipRecently = flags.includes('recent') || flags.includes('recentskip');
+            // Everything from position 3 onward is either a boolean
+            // flag or an experience field. We inspect each token: if
+            // it parses as experience take that (last-one-wins);
+            // otherwise treat it as a flag.
+            const trailing = parts.slice(3).map(f => f.trim());
+            let experienceLevel = null;
+            const flagsOnly = [];
+            trailing.forEach(tok => {
+                if (!tok) return;
+                const exp = RDX ? RDX.parseExperienceField(tok) : null;
+                if (exp !== null) {
+                    experienceLevel = exp;
+                } else {
+                    flagsOnly.push(tok.toLowerCase());
+                }
+            });
+            const flagFlex = flagsOnly.includes('flex') || flagsOnly.includes('any')
+                || flagsOnly.includes('flexible') || flagsOnly.includes('anywhere')
+                || flagsOnly.includes('*');
+            const skipRecently = flagsOnly.includes('recent') || flagsOnly.includes('recentskip');
 
             // If a value was supplied but wasn't recognised, warn.
             const primaryFieldGiven = !!(parts[1] && parts[1].trim());
@@ -379,7 +448,9 @@
             const flexible = flagFlex || flexFromField;
             const primary = primaryFromField;   // '' when flexible-only
 
-            const player = addPlayer({ name, primary, secondary, flexible, skipRecently });
+            const player = addPlayer({
+                name, primary, secondary, flexible, skipRecently, experienceLevel
+            });
             if (player) added.push(player);
         });
 
@@ -607,8 +678,15 @@
 
     /**
      * Given rows-as-arrays, figure out which column holds Name and which
-     * holds Position. If we can't find a header, assume col 0 = Name and
-     * col 1 = Position. Returns { nameCol, posCol, dataStart }.
+     * holds Position. If a Name header is found but no Position header,
+     * every row is imported as flexible (no position). If no header row
+     * is detected at all, we assume col 0 = Name and there is no
+     * Position column — we deliberately do NOT guess col 1 as position,
+     * because that silently mis-parses other data (email, team, etc.)
+     * as positions and skips rows whose column-1 value can't be
+     * coerced. Also detects an optional Experience column.
+     * Returns { nameCol, posCol, expCol, dataStart }. posCol is -1
+     * when no position column exists.
      */
     function detectColumns(rows) {
         for (let i = 0; i < Math.min(rows.length, 5); i++) {
@@ -616,15 +694,20 @@
             let nameCol = -1, posCol = -1;
             row.forEach((cell, idx) => {
                 const v = (cell || '').toString().trim().toLowerCase();
-                if (nameCol < 0 && /^(name|player|player name)$/.test(v)) nameCol = idx;
+                if (nameCol < 0 && /^(name|player|player name|full name|first name)$/.test(v)) nameCol = idx;
                 if (posCol < 0 && /^(position|pos|primary|role)$/.test(v)) posCol = idx;
             });
-            if (nameCol >= 0 && posCol >= 0) {
-                return { nameCol, posCol, dataStart: i + 1 };
+            if (nameCol >= 0) {
+                // Header row found. posCol may be -1 if there is no
+                // Position column — that's fine, all rows will be
+                // flexible.
+                const expCol = RDX ? RDX.detectExperienceColumn(row) : -1;
+                return { nameCol, posCol, expCol, dataStart: i + 1 };
             }
         }
-        // No header — fall back to first two columns.
-        return { nameCol: 0, posCol: 1, dataStart: 0 };
+        // No recognisable header row. Treat the first column as the
+        // list of names; no position column, no experience column.
+        return { nameCol: 0, posCol: -1, expCol: -1, dataStart: 0 };
     }
 
     /**
@@ -632,9 +715,14 @@
      * single sheet. Empty-name rows are dropped. Missing positions and
      * "any"-style values are accepted as flexible players; only rows
      * with a non-empty, unrecognised position are flagged invalid.
+     *
+     * When an Experience column was detected, each row's experience
+     * value is validated to 1..10 (null otherwise). An invalid
+     * experience does NOT invalidate the whole row — the position is
+     * still respected; the experience is simply dropped.
      */
     function rowsToSheetPlayers(rows) {
-        const { nameCol, posCol, dataStart } = detectColumns(rows);
+        const { nameCol, posCol, expCol, dataStart } = detectColumns(rows);
         const players = [];
         for (let i = dataStart; i < rows.length; i++) {
             const row = rows[i] || [];
@@ -645,12 +733,22 @@
             // A row is valid if it names a position OR is marked
             // flexible (blank cell or an "any"-style keyword).
             const valid = !!position || flexible;
+
+            let experienceLevel = null;
+            let experienceRaw = '';
+            if (expCol >= 0) {
+                experienceRaw = (row[expCol] || '').toString().trim();
+                experienceLevel = RDX ? RDX.validateExperience(experienceRaw) : null;
+            }
+
             players.push({
                 name,
                 position,     // '' when flexible-only
                 flexible,
                 raw,
-                valid
+                valid,
+                experienceLevel,
+                experienceRaw
             });
         }
         return players;
@@ -795,6 +893,8 @@
                     flexible: pl.flexible,
                     raw: pl.raw,
                     valid: pl.valid,
+                    experienceLevel: pl.experienceLevel,
+                    experienceRaw: pl.experienceRaw,
                     sheet: sheet.name,
                     skipReason
                 });
@@ -845,8 +945,9 @@
 
         // Hide the sheet column when there's only one sheet total.
         const showSheetCol = importSession.sheets.length > 1;
-        ui.importPreviewTable.querySelectorAll('th')[2].style.display =
-            showSheetCol ? '' : 'none';
+        // Column order is now: Name (0), Position (1), Experience (2), Sheet (3).
+        const ths = ui.importPreviewTable.querySelectorAll('th');
+        if (ths[3]) ths[3].style.display = showSheetCol ? '' : 'none';
 
         // The dedupe-roster toggle only matters when we're adding to the
         // active tab. Grey it out in the multi-sheet path.
@@ -874,6 +975,29 @@
                 if (row.flexible) posTd.title = 'Also flagged flexible';
             }
             tr.appendChild(posTd);
+
+            // Experience column — shows the validated integer, or a
+            // dash when unset / invalid. An invalid raw value keeps the
+            // row valid overall (position wins); we just surface the
+            // detail via the tooltip so importers can spot bad data.
+            const expTd = document.createElement('td');
+            expTd.className = 'exp-cell';
+            if (row.experienceLevel != null) {
+                // Render as a coloured pill so beginner / intermediate
+                // / advanced / expert bands are visible at a glance,
+                // matching the roster and team-card badges.
+                const pill = document.createElement('span');
+                const band = RDX ? RDX.experienceBand(row.experienceLevel) : '';
+                pill.className = `exp-pill ${band}`.trim();
+                pill.textContent = String(row.experienceLevel);
+                expTd.appendChild(pill);
+            } else if (row.experienceRaw) {
+                expTd.textContent = '—';
+                expTd.title = `Ignored experience value "${row.experienceRaw}" (expected an integer 1–10)`;
+            } else {
+                expTd.textContent = '—';
+            }
+            tr.appendChild(expTd);
 
             const sheetTd = document.createElement('td');
             sheetTd.textContent = row.sheet;
@@ -974,7 +1098,10 @@
                         secondary: '',
                         flexible: !!row.flexible,
                         skipRecently: false,
-                        excluded: false
+                        excluded: false,
+                        experienceLevel: row.experienceLevel != null
+                            ? row.experienceLevel
+                            : null
                     });
                 });
             });
@@ -994,7 +1121,10 @@
                     primary: row.position,
                     secondary: '',
                     flexible: !!row.flexible,
-                    skipRecently: false
+                    skipRecently: false,
+                    experienceLevel: row.experienceLevel != null
+                        ? row.experienceLevel
+                        : null
                 });
             });
         }
@@ -1036,15 +1166,26 @@
     /* =================================================================
      * TEAM GENERATION
      *
-     * Strategy: iterated randomised greedy assignment.
-     *   - We honour locked slots first (from a previous draw).
-     *   - Free players are shuffled and assigned to open slots position
-     *     by position. For each position we prefer tier-1 (primary)
-     *     candidates first, then tier-2 (secondary), then tier-3
-     *     (flexible). Skip-recent players are shuffled to the *end* of
-     *     the skip tier-1 pool to reduce their skip-selection odds.
-     *   - We run the whole thing many times and keep the attempt with
+     * Two strategies live behind a single entry point (generateTeams):
+     *
+     *   'position' (default, unchanged from the original design)
+     *     Iterated randomised greedy assignment. We honour locked slots
+     *     first, then shuffle the remaining pool and fill open slots
+     *     position by position preferring tier-1 (primary) candidates,
+     *     then tier-2 (secondary), then tier-3 (flexible). Skip-recent
+     *     players are shuffled to the *end* of the skip tier-1 pool.
+     *     We run the whole thing many times and keep the attempt with
      *     the lowest total tier score (i.e. the best fit).
+     *
+     *   'experience' (opt-in, added alongside the position strategy)
+     *     Fair random sub-selection, then a variance-minimising greedy
+     *     draft on experience totals, then position placement within
+     *     each team using the same tier logic above. Runs multiple
+     *     passes and keeps the one with the best combined score.
+     *
+     * Both strategies use `attemptDraw` / `attemptDrawByExperience` as
+     * their per-pass implementation; the outer `generateTeams` function
+     * dispatches based on `activeCompetition().balanceMode`.
      * ================================================================= */
 
     function generateTeams(options) {
@@ -1072,7 +1213,8 @@
                 substitutes: active.map(p => p.id),
                 warning: active.length === 0
                     ? 'Add players before drawing.'
-                    : `Need at least ${teamSize} players for a full ${teamSize}-person team (have ${active.length}).`
+                    : `Need at least ${teamSize} players for a full ${teamSize}-person team (have ${active.length}).`,
+                mode: activeBalanceMode()
             };
         }
 
@@ -1085,15 +1227,22 @@
             lockedAssignments.teamLocked.clear();
         }
 
-        // ---- 2. Run multiple randomised attempts ----
-        let best = null;
+        // ---- 2. Select strategy and run multiple randomised attempts ----
+        const mode = activeBalanceMode();
+        const runAttempt = mode === 'experience'
+            ? attemptDrawByExperience
+            : attemptDraw;
+        // The experience-balance greedy converges quickly; fewer passes
+        // are needed to explore its (already small) space of good draws.
+        const attempts = mode === 'experience' ? 40 : GENERATION_ATTEMPTS;
 
-        for (let attempt = 0; attempt < GENERATION_ATTEMPTS; attempt++) {
-            const result = attemptDraw(active, teamCount, lockedAssignments);
+        let best = null;
+        for (let attempt = 0; attempt < attempts; attempt++) {
+            const result = runAttempt(active, teamCount, lockedAssignments);
             if (!best || result.score < best.score) {
                 best = result;
-                // Perfect (all tier-1) — stop early.
-                if (best.score === teamCount * teamSize) break;
+                // Perfect (all tier-1) — only meaningful in position mode.
+                if (mode === 'position' && best.score === teamCount * teamSize) break;
             }
         }
 
@@ -1101,7 +1250,8 @@
         return {
             teams: best.teams,
             substitutes: best.substitutes,
-            warning: best.warning
+            warning: best.warning,
+            mode
         };
     }
 
@@ -1272,6 +1422,186 @@
         return { playerId: null, locked: false, tier: 0 };
     }
 
+    /**
+     * Balanced-by-experience draw attempt.
+     *
+     * Algorithm:
+     *   1. Build empty teams and pre-fill any locked slots from the
+     *      previous draw (same as the position strategy).
+     *   2. From the unlocked pool, randomly pick which players will
+     *      play vs. sit out. Fairness matters here — if we always drew
+     *      the top-N by experience, beginners would sub every week.
+     *   3. Sort the playing set descending by effective experience with
+     *      a random tiebreak, then use `RDX.greedyAssign` to distribute
+     *      into teams (least-loaded team gets the next player, ties
+     *      broken randomly). This keeps team totals close while also
+     *      producing meaningfully different draws across runs.
+     *   4. Within each team, assign positions using the same tier logic
+     *      as the position strategy — primary first, then secondary,
+     *      then flexible — so players still land where they're best
+     *      suited whenever possible.
+     *   5. Score = variance-of-totals * BALANCE_WEIGHT + tier penalty.
+     *      Lower is better; the outer generateTeams loop keeps the best.
+     */
+    function attemptDrawByExperience(activePlayers, teamCount, locks) {
+        const positions = activePositions();
+        const teamSize = positions.length;
+
+        // ---- Build empty teams, honouring team-locked flags ----
+        const teams = [];
+        for (let i = 0; i < teamCount; i++) {
+            const slots = {};
+            positions.forEach(pos => { slots[pos] = emptySlot(); });
+            teams.push({
+                number: i + 1,
+                locked: locks.teamLocked.has(i),
+                slots
+            });
+        }
+
+        // ---- Apply locked assignments first ----
+        positions.forEach(pos => {
+            const bucket = locks.byPosition[pos] || [];
+            bucket.forEach(entry => {
+                if (entry.teamIndex >= teamCount) return;
+                const player = getPlayer(entry.playerId);
+                if (!player) return;
+                const tier = positionTier(player, pos) || 3;
+                teams[entry.teamIndex].slots[pos] = {
+                    playerId: entry.playerId,
+                    locked: true,
+                    tier: tier
+                };
+            });
+        });
+
+        // ---- Locked-player experience totals per team ----
+        // These seed the greedy assignment so newly-placed players go
+        // to teams whose locked members are already lighter on skill.
+        const lockedTotals = teams.map(team => {
+            let total = 0;
+            positions.forEach(pos => {
+                const slot = team.slots[pos];
+                if (slot.playerId) {
+                    const p = getPlayer(slot.playerId);
+                    if (p) total += RDX.getEffectiveExperience(p);
+                }
+            });
+            return total;
+        });
+
+        // ---- Capacity remaining per team ----
+        const capacities = teams.map(team => {
+            let c = 0;
+            positions.forEach(pos => { if (!team.slots[pos].playerId) c++; });
+            return c;
+        });
+        const totalCapacity = capacities.reduce((a, b) => a + b, 0);
+
+        // ---- Pick who plays vs. who subs (random and therefore fair) ----
+        const pool = activePlayers.filter(p => !locks.playerLocked.has(p.id));
+        const shuffled = pool.slice();
+        RDX.shuffleInPlace(shuffled);
+        const toPlace = shuffled.slice(0, totalCapacity);
+        const substitutes = shuffled.slice(totalCapacity).map(p => p.id);
+
+        // ---- Descending sort with random tiebreak, then greedy draft ----
+        const enriched = toPlace.map(p => ({
+            player: p,
+            exp: RDX.getEffectiveExperience(p)
+        }));
+        enriched.sort((a, b) =>
+            (b.exp - a.exp) || (Math.random() - 0.5)
+        );
+        const teamGroups = RDX.greedyAssign(enriched, lockedTotals, capacities);
+
+        // ---- Within each team, place players into open positions ----
+        // Position ordering matches the position strategy (Skip first),
+        // so scarce roles land first when a group is thin on flexibility.
+        let tierPenalty = 0;
+        teams.forEach((team, idx) => {
+            const group = teamGroups[idx].slice();
+            const needed = positions.filter(pos => !team.slots[pos].playerId);
+
+            needed.forEach(pos => {
+                let picked = null;
+                let pickedTier = 0;
+                for (const tier of [1, 2, 3]) {
+                    const candidates = group.filter(p => positionTier(p, pos) === tier);
+                    if (!candidates.length) continue;
+                    // Same skip-recent nudge used by the position strategy.
+                    if (pos === 'skip' && tier === 1) {
+                        candidates.sort((a, b) => {
+                            const wa = a.skipRecently ? SKIP_RECENT_PENALTY * Math.random() : Math.random();
+                            const wb = b.skipRecently ? SKIP_RECENT_PENALTY * Math.random() : Math.random();
+                            return wa - wb;
+                        });
+                    } else {
+                        RDX.shuffleInPlace(candidates);
+                    }
+                    picked = candidates[0];
+                    pickedTier = tier;
+                    break;
+                }
+                if (picked) {
+                    team.slots[pos] = {
+                        playerId: picked.id,
+                        locked: false,
+                        tier: pickedTier
+                    };
+                    const i = group.indexOf(picked);
+                    if (i >= 0) group.splice(i, 1);
+                    tierPenalty += pickedTier;
+                }
+            });
+        });
+
+        // ---- Compute balance score from final team compositions ----
+        // Include locked players so their experience counts toward the
+        // team total. Anyone left over in a team's group (e.g. a group
+        // of 4 all-primary-lead players facing a Skip/Third/Second/Lead
+        // set) becomes a substitute so we don't lose them.
+        const finalGroups = teams.map(team => {
+            const players = [];
+            positions.forEach(pos => {
+                const slot = team.slots[pos];
+                if (slot.playerId) {
+                    const p = getPlayer(slot.playerId);
+                    if (p) players.push(p);
+                }
+            });
+            return players;
+        });
+        const stats = RDX.computeTeamStats(finalGroups);
+
+        // Any greedy-placed player who couldn't be fit into an open
+        // position slot (rare — requires a team with no tier-1/2/3
+        // match for a role) falls through to substitutes.
+        teamGroups.forEach((group, idx) => {
+            group.forEach(p => {
+                const alreadyPlaced = positions.some(pos =>
+                    teams[idx].slots[pos].playerId === p.id);
+                if (!alreadyPlaced) substitutes.push(p.id);
+            });
+        });
+
+        // ---- Warning for incomplete teams ----
+        let warning = '';
+        const incompleteTeams = teams.filter(t =>
+            positions.some(pos => !t.slots[pos].playerId)
+        );
+        if (incompleteTeams.length > 0) {
+            warning = `Some ${teamSize}-person teams couldn't be completed given the players' eligible positions. Consider marking more players as flexible.`;
+        }
+
+        return {
+            teams,
+            substitutes,
+            score: RDX.balanceScore(stats) * RDX.BALANCE_WEIGHT + tierPenalty,
+            warning
+        };
+    }
+
     /* -----------------------------------------------------------------
      * Rendering
      * ----------------------------------------------------------------- */
@@ -1384,6 +1714,9 @@
         renderCompetitionTabs();
         renderRoster();
         renderTeams();
+        // Each competition remembers its own balance mode; reflect that
+        // in the selector when the user hops between tabs.
+        syncBalanceModeSelector();
     }
 
     function addCompetition(name) {
@@ -1437,6 +1770,12 @@
             ui.playerEmpty.classList.add('hidden');
         }
 
+        // In experience-balancing mode positions become irrelevant to
+        // the draw, so the "ANY" pill next to a flexible player is
+        // just noise — the EXP N pill below is what matters. Suppress
+        // ANY in this mode; keep it in position mode.
+        const inExperienceMode = activeBalanceMode() === 'experience';
+
         state.players.forEach(player => {
             const li = document.createElement('li');
             li.className = 'player-item' + (player.excluded ? ' excluded' : '');
@@ -1472,7 +1811,7 @@
                 posEl.appendChild(secTag);
             }
 
-            if (player.flexible) {
+            if (player.flexible && !inExperienceMode) {
                 const flexTag = document.createElement('span');
                 flexTag.className = 'pos-tag flex-tag';
                 flexTag.textContent = 'ANY';
@@ -1486,6 +1825,18 @@
                 rec.textContent = 'RECENT SKIP';
                 rec.title = 'Played skip recently — lowered skip priority';
                 posEl.appendChild(rec);
+            }
+
+            // Experience pill — only shown when a rating has been set.
+            // Colour-coded by band so the roster gives an at-a-glance
+            // skill overview when experience matters.
+            if (player.experienceLevel != null && RDX) {
+                const band = RDX.experienceBand(player.experienceLevel);
+                const expTag = document.createElement('span');
+                expTag.className = `pos-tag exp-tag ${band}`;
+                expTag.textContent = `EXP ${player.experienceLevel}`;
+                expTag.title = `Experience level ${player.experienceLevel}/10 (${band})`;
+                posEl.appendChild(expTag);
             }
 
             info.appendChild(posEl);
@@ -1675,10 +2026,23 @@
                 tierEl.title = `${player.name}'s primary position wasn't available, so they've been placed in their secondary.`;
                 slotEl.appendChild(tierEl);
             } else if (slot.tier === 3 && player) {
+                // In experience-balanced draws, positions are a
+                // secondary concern — surface the player's experience
+                // level instead of the generic "any" badge so the
+                // organiser can see the skill mix at a glance.
+                const comp = activeCompetition();
+                const drawMode = comp ? comp.drawMode : null;
                 const tierEl = document.createElement('span');
-                tierEl.className = 'slot-tier tier-3';
-                tierEl.textContent = 'any';
-                tierEl.title = `${player.name} is marked as flexible and was placed here to complete the team — this isn't a preferred position.`;
+                if (drawMode === 'experience' && player.experienceLevel != null) {
+                    const band = RDX ? RDX.experienceBand(player.experienceLevel) : '';
+                    tierEl.className = `slot-tier tier-exp ${band}`.trim();
+                    tierEl.textContent = `EXP ${player.experienceLevel}`;
+                    tierEl.title = `${player.name} — experience level ${player.experienceLevel}/10 (${band}).`;
+                } else {
+                    tierEl.className = 'slot-tier tier-3';
+                    tierEl.textContent = 'any';
+                    tierEl.title = `${player.name} is marked as flexible and was placed here to complete the team — this isn't a preferred position.`;
+                }
                 slotEl.appendChild(tierEl);
             }
 
@@ -1931,6 +2295,7 @@
                 result = generateTeams({ respectLocks });
                 targetComp.teams = result.teams;
                 targetComp.substitutes = result.substitutes;
+                targetComp.drawMode = result.mode || null;
             } finally {
                 state.activeId = wasActive;
             }
@@ -2093,6 +2458,7 @@
         state.players = [];
         state.teams = null;
         state.substitutes = [];
+        if (comp) comp.drawMode = null;
         setFeedback('');
         renderCompetitionTabs();
         renderRoster();
@@ -2149,6 +2515,12 @@
         ui.editSecondary.value = player.secondary || '';
         ui.editFlexible.checked = player.flexible;
         ui.editSkipRecent.checked = player.skipRecently;
+        // Populate the experience slider from the player. `null` /
+        // missing means "not set" — the toggle stays unchecked and the
+        // slider is left at its neutral centre.
+        if (editExperienceControl) {
+            editExperienceControl.write(player.experienceLevel);
+        }
         ui.editModal.classList.remove('hidden');
         ui.editName.focus();
     }
@@ -2161,7 +2533,117 @@
     /* -----------------------------------------------------------------
      * Event wiring
      * ----------------------------------------------------------------- */
+
+    // Small helper for the two experience-slider blocks (add-player
+    // form + edit modal). Both blocks have identical structure:
+    // checkbox toggle + <input type=range> + live value display. We
+    // wire them the same way and return getters/setters so the rest
+    // of the app doesn't have to know how the DOM is laid out.
+    //
+    // Kept at module scope so `openEditModal` can call
+    // `editExperienceControl.write()` to prefill the slider before the
+    // wireEvents pass has run its `sync()` for the first time.
+    let addExperienceControl = null;
+    let editExperienceControl = null;
+
+    function bindExperienceRow(toggle, slider, valueDisplay) {
+        if (!toggle || !slider || !valueDisplay) return null;
+        const row = slider.closest('.experience-slider-row');
+
+        const sync = () => {
+            const on = !!toggle.checked;
+            slider.disabled = !on;
+            if (row) row.dataset.enabled = on ? 'true' : 'false';
+            valueDisplay.textContent = on ? String(slider.value) : '—';
+        };
+
+        toggle.addEventListener('change', sync);
+        // If the user drags the slider without ticking the checkbox
+        // first, treat that as intent-to-set and enable the toggle.
+        slider.addEventListener('input', () => {
+            if (!toggle.checked) toggle.checked = true;
+            sync();
+        });
+
+        return {
+            sync,
+            /** @returns {number|null} */
+            read() {
+                if (!toggle.checked) return null;
+                return RDX ? RDX.validateExperience(slider.value) : null;
+            },
+            /** @param {number|null|undefined} level */
+            write(level) {
+                const valid = RDX ? RDX.validateExperience(level) : null;
+                if (valid == null) {
+                    toggle.checked = false;
+                    slider.value = '5';
+                } else {
+                    toggle.checked = true;
+                    slider.value = String(valid);
+                }
+                sync();
+            },
+            reset() {
+                toggle.checked = false;
+                slider.value = '5';
+                sync();
+            }
+        };
+    }
+
+    /**
+     * Balance-mode helpers. The mode is stored on the active
+     * competition so switching tabs keeps each competition's choice
+     * distinct — much like team size.
+     */
+    function activeBalanceMode() {
+        const c = activeCompetition();
+        return (c && c.balanceMode === 'experience') ? 'experience' : 'position';
+    }
+
+    function setActiveBalanceMode(mode) {
+        const c = activeCompetition();
+        if (!c) return;
+        const next = mode === 'experience' ? 'experience' : 'position';
+        if (c.balanceMode === next) return;
+        c.balanceMode = next;
+        // Changing the balance mode doesn't invalidate the existing
+        // draw; it only affects the NEXT generate/redraw click. This
+        // matches how team-size changes are handled for locked teams
+        // — tinkering with settings shouldn't erase visible results.
+        updateBalanceModeHint();
+        // The roster pills differ between modes (ANY vs EXP N for
+        // flexible players), so refresh the list to reflect the
+        // current mode immediately.
+        renderRoster();
+    }
+
+    function updateBalanceModeHint() {
+        if (!ui.balanceModeHint) return;
+        const mode = activeBalanceMode();
+        ui.balanceModeHint.textContent = mode === 'experience'
+            ? 'Teams get roughly equal total experience; positions filled within each team.'
+            : 'Original behaviour — fill Skip/Third/Second/Lead from players\' preferred positions.';
+    }
+
+    function syncBalanceModeSelector() {
+        const mode = activeBalanceMode();
+        if (ui.balanceModePosition) ui.balanceModePosition.checked = (mode === 'position');
+        if (ui.balanceModeExperience) ui.balanceModeExperience.checked = (mode === 'experience');
+        updateBalanceModeHint();
+    }
+
     function wireEvents() {
+        // Experience slider bindings — wired FIRST so form-submit / open-
+        // modal handlers can use the returned controls.
+        addExperienceControl = bindExperienceRow(
+            ui.experienceToggle, ui.experienceInput, ui.experienceValue);
+        editExperienceControl = bindExperienceRow(
+            ui.editExperienceToggle, ui.editExperienceInput, ui.editExperienceValue);
+        if (addExperienceControl) addExperienceControl.sync();
+        if (editExperienceControl) editExperienceControl.sync();
+
         // Player entry form
         ui.form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -2170,11 +2652,17 @@
                 primary: ui.primarySelect.value,
                 secondary: ui.secondarySelect.value,
                 flexible: ui.flexibleInput.checked,
-                skipRecently: ui.skipRecentInput.checked
+                skipRecently: ui.skipRecentInput.checked,
+                experienceLevel: addExperienceControl
+                    ? addExperienceControl.read()
+                    : null
             });
             if (player) {
                 renderRoster();
                 ui.form.reset();
+                // form.reset() clears the checkbox but doesn't fire our
+                // change listener; explicitly reset the slider block.
+                if (addExperienceControl) addExperienceControl.reset();
                 ui.nameInput.focus();
             }
         });
@@ -2263,6 +2751,20 @@
             });
         }
 
+        // Balance mode — per-competition setting. Unlike team size,
+        // changing the mode preserves the existing draw (users often
+        // want to see the current result *and* redraw with a different
+        // strategy). The mode only affects the NEXT generate/redraw.
+        const wireBalanceRadio = (input) => {
+            if (!input) return;
+            input.addEventListener('change', () => {
+                if (!input.checked) return;
+                setActiveBalanceMode(input.value);
+            });
+        };
+        wireBalanceRadio(ui.balanceModePosition);
+        wireBalanceRadio(ui.balanceModeExperience);
+
         // Edit modal
         ui.editForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -2277,7 +2779,10 @@
                 primary: isAny ? '' : primaryValue,
                 secondary: ui.editSecondary.value,
                 flexible: isAny ? true : ui.editFlexible.checked,
-                skipRecently: ui.editSkipRecent.checked
+                skipRecently: ui.editSkipRecent.checked,
+                experienceLevel: editExperienceControl
+                    ? editExperienceControl.read()
+                    : null
             });
             closeEditModal();
             renderRoster();
@@ -2308,6 +2813,7 @@
         renderCompetitionTabs();
         renderRoster();
         renderTeams();
+        syncBalanceModeSelector();
     }
 
     if (document.readyState === 'loading') {

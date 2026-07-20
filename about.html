@@ -176,6 +176,27 @@
                     <li>Team count is <code>floor(activePlayers / 4)</code>. Leftover players are listed as substitutes.</li>
                 </ul>
 
+                <h3>Balancing by experience</h3>
+                <p>
+                    Each competition has a <strong>Balance draw by</strong> control just
+                    above the <em>Generate teams</em> button. Leave it on <em>Position</em>
+                    for the original behaviour — draws are decided by who prefers Skip /
+                    Third / Second / Lead. Switch it to <em>Experience</em> to get teams
+                    with roughly equal total skill.
+                </p>
+                <p>
+                    Experience is an <strong>optional</strong> 1–10 rating you can set on
+                    each player (1 = beginner, 10 = advanced / professional). Players
+                    without a rating are treated as the median (5), so unrated rosters
+                    still balance sensibly. Sub selection is randomised, not
+                    experience-based — beginners aren't systematically benched.
+                </p>
+                <p>
+                    Positions are still respected within each team: after the experience
+                    balancing decides <em>who plays with whom</em>, the same tier logic
+                    (primary → secondary → flexible) decides <em>who plays where</em>.
+                </p>
+
                 <h3>Locks and redraws</h3>
                 <p>
                     After a draw you can lock an individual player to a slot, or lock an entire

@@ -648,6 +648,32 @@ textarea {
     text-transform: capitalize;
 }
 
+.import-preview-table td.exp-cell {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    color: var(--ink-soft);
+    text-align: center;
+}
+
+/* Coloured experience pill inside the import-preview Experience
+   column. Bands and colours match the roster / team-card badges. */
+.exp-pill {
+    display: inline-block;
+    min-width: 22px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #fff;
+    background: #7E57C2;
+    line-height: 1.2;
+}
+
+.exp-pill.beginner     { background: #b87333; color: #fff; }
+.exp-pill.intermediate { background: #9ca3af; color: #1f2937; }
+.exp-pill.advanced     { background: #eab308; color: #1f2937; }
+.exp-pill.expert       { background: #7e22ce; color: #fff; }
+
 /* ---------- Player list ---------- */
 .player-list-wrapper {
     margin-top: 8px;
@@ -737,6 +763,160 @@ textarea {
 
 .pos-tag.recent-tag {
     background: var(--accent);
+}
+
+/* Experience-level pill on the roster. A medal-inspired palette so
+   the bands are named after tiers of experience:
+     beginner     1–3   bronze  #b87333  (white text)
+     intermediate 4–6   silver  #9ca3af  (dark text)
+     advanced     7–8   gold    #eab308  (dark text)
+     expert       9–10  purple  #7e22ce  (white text)
+   Gives the roster an at-a-glance skill overview. */
+.pos-tag.exp-tag {
+    background: #7e22ce;
+    color: #fff;
+    letter-spacing: 0;
+}
+
+.pos-tag.exp-tag.beginner     { background: #b87333; color: #fff; }
+.pos-tag.exp-tag.intermediate { background: #9ca3af; color: #1f2937; }
+.pos-tag.exp-tag.advanced     { background: #eab308; color: #1f2937; }
+.pos-tag.exp-tag.expert       { background: #7e22ce; color: #fff; }
+
+/* ---------- Experience slider ---------- */
+.experience-block {
+    flex-direction: column;
+    gap: 8px;
+}
+
+.experience-toggle {
+    /* Reuse checkbox styles from the flags row above. */
+}
+
+.experience-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: opacity 0.15s;
+}
+
+.experience-slider-row[data-enabled="false"] {
+    opacity: 0.55;
+}
+
+.experience-anchor {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+.experience-anchor.beginner { color: var(--secondary); }
+.experience-anchor.pro      { color: var(--locked); }
+
+.experience-slider {
+    flex: 1 1 auto;
+    min-width: 100px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.experience-slider:disabled {
+    cursor: not-allowed;
+}
+
+.experience-value {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-weight: 700;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px 9px;
+    font-size: 0.9rem;
+    min-width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.experience-slider-row[data-enabled="false"] .experience-value {
+    color: var(--muted);
+    font-family: inherit;
+    font-weight: 500;
+}
+
+/* ---------- Balance-mode selector ---------- */
+.balance-mode-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.balance-mode-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.balance-mode-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s, color 0.15s;
+}
+
+.balance-mode-option input {
+    accent-color: var(--primary);
+    cursor: pointer;
+    margin: 0;
+}
+
+.balance-mode-option:has(input:checked) {
+    background: #fff;
+    color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary) inset;
+    font-weight: 600;
+}
+
+.balance-mode-hint {
+    color: var(--muted);
+    font-size: 0.8rem;
+    flex-basis: 100%;
+}
+
+@media (min-width: 640px) {
+    .balance-mode-hint {
+        flex-basis: auto;
+        margin-left: auto;
+    }
+}
+
+/* Experience total shown on each team card in experience-balance mode. */
+.team-exp-total {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+    margin-left: 8px;
 }
 
 .player-actions {
@@ -1001,6 +1181,25 @@ textarea {
     color: #6b7280;
     background: #f3f4f6;
 }
+
+/* Experience-level badge on team cards. Uses the same medal-inspired
+   palette as the roster EXP pill so the two views match at a glance:
+     beginner     1–3   bronze  #b87333  (white text)
+     intermediate 4–6   silver  #9ca3af  (dark text)
+     advanced     7–8   gold    #eab308  (dark text)
+     expert       9–10  purple  #7e22ce  (white text)
+   Overrides the muted grey defaults from `.slot-tier`. */
+.slot-tier.tier-exp {
+    color: #fff;
+    background: #7e22ce;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.slot-tier.tier-exp.beginner     { background: #b87333; color: #fff; }
+.slot-tier.tier-exp.intermediate { background: #9ca3af; color: #1f2937; }
+.slot-tier.tier-exp.advanced     { background: #eab308; color: #1f2937; }
+.slot-tier.tier-exp.expert       { background: #7e22ce; color: #fff; }
 
 /* ---------- Substitutes ---------- */
 .subs-section {
