@@ -34,6 +34,13 @@
     --shadow: 0 2px 8px rgba(15, 37, 64, 0.06);
     --shadow-lg: 0 10px 30px rgba(15, 37, 64, 0.15);
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* iOS safe-area insets — active when the HTML meta viewport
+       includes `viewport-fit=cover`. Falls back to 0px elsewhere. */
+    --safe-top:    env(safe-area-inset-top, 0px);
+    --safe-right:  env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left:   env(safe-area-inset-left, 0px);
 }
 
 html,
@@ -71,6 +78,8 @@ h3 {
     background: linear-gradient(135deg, #0b5cff 0%, #0946c9 60%, #072a7a 100%);
     color: #fff;
     padding: 18px 0;
+    /* Extend into the iOS notch / dynamic island area when installed as a PWA. */
+    padding-top: max(18px, calc(var(--safe-top) + 18px));
     box-shadow: var(--shadow);
 }
 
@@ -1160,6 +1169,8 @@ textarea {
 /* ---------- Footer ---------- */
 .app-footer {
     padding: 20px 0 30px;
+    /* Keep content clear of the iOS home indicator when installed as a PWA. */
+    padding-bottom: max(30px, calc(var(--safe-bottom) + 20px));
     text-align: center;
     color: var(--muted);
     font-size: 0.85rem;
@@ -1184,8 +1195,10 @@ textarea {
 /* ---------- Floating "say thanks" pill ---------- */
 .thanks-pill {
     position: fixed;
-    right: 18px;
-    bottom: 18px;
+    /* Respect iOS safe areas so the pill stays above the home indicator
+       and clear of the notch on landscape/notched devices. */
+    right: max(18px, var(--safe-right));
+    bottom: max(18px, calc(var(--safe-bottom) + 18px));
     z-index: 60;
     display: inline-flex;
     align-items: center;

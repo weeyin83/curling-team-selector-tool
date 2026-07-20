@@ -2316,3 +2316,24 @@
         init();
     }
 })();
+
+/* =====================================================================
+ * Progressive Web App: register the service worker.
+ *
+ * The service worker gives us:
+ *   - Full offline support (all HTML/CSS/JS/icons are precached)
+ *   - Installability to iOS/Android home screens
+ *   - Fast repeat loads
+ *
+ * Silently no-ops on unsupported environments (older browsers,
+ * private-browsing modes, file:// origins, etc.). See sw.js for the
+ * caching strategy — network-first for HTML so page updates ship on
+ * every refresh; cache-first for static assets.
+ * ===================================================================== */
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker
+            .register('/sw.js', { scope: '/' })
+            .catch((err) => console.warn('SW registration failed:', err));
+    });
+}
