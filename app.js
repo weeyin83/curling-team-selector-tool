@@ -2814,11 +2814,16 @@
         // Player entry form
         ui.form.addEventListener('submit', (e) => {
             e.preventDefault();
+            // The "— any (no preference) —" primary option stores
+            // primary as '' and forces flexible=true, matching the
+            // edit-modal behaviour.
+            const primaryValue = ui.primarySelect.value;
+            const isAny = primaryValue === 'any' || primaryValue === '';
             const player = addPlayer({
                 name: ui.nameInput.value,
-                primary: ui.primarySelect.value,
+                primary: isAny ? '' : primaryValue,
                 secondary: ui.secondarySelect.value,
-                flexible: ui.flexibleInput.checked,
+                flexible: isAny ? true : ui.flexibleInput.checked,
                 skipRecently: ui.skipRecentInput.checked,
                 experienceLevel: addExperienceControl
                     ? addExperienceControl.read()
