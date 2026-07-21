@@ -10,13 +10,13 @@ Everything runs in your browser. No server, no accounts, no database, no cookies
 - **Import players from Excel (.xlsx) or CSV files** — one sheet per competition/league; positions are matched case-insensitively
 - **Multiple competitions in one page** — each competition (e.g. Trophy 1, Trophy 2) is a separate tab with its own roster and its own team draw
 - **2, 3, or 4-person teams per competition** — pick the format that matches the game (mixed doubles, triples, or full teams)
-- Assign each player a **primary** and optional **secondary** position, plus an optional "can play any position" flag used as a last resort
+- Assign each player a **primary** position (Skip / Third / Second / Lead, or **Any** for no preference) and an optional **secondary** position, plus an optional "can play any position" flag used as a last resort
 - **Optional experience rating (1–10)** per player — used only when balancing draws by experience; positions still work exactly as before
 - Mark players as "played skip recently" to reduce their odds of being drawn as skip
 - Exclude specific players from the next draw without deleting them
 - **Two team-balancing modes per competition**
   - **By position** (the original behaviour) — fill Skip/Third/Second/Lead from players' preferred positions
-  - **By experience** — form teams with roughly equal total experience, then place positions within each team
+  - **By experience** — form teams with roughly equal total experience, then place positions within each team. Every team is guaranteed exactly one Skip; a **balance score (0–100)** is shown for the overall draw
 - Randomised team generation that prioritises primary matches, then secondary, then flexible
 - Automatic detection of team count (`floor(activePlayers / 4)`) with leftover players listed as substitutes
 - One-click redraw that respects **locks**:
@@ -95,8 +95,8 @@ When you deploy a change, bump `CACHE_VERSION` at the top of [`sw.js`](sw.js) (e
 Name, primary, secondary, flags, experience
 ```
 
-- `primary` — required, one of `skip`, `third`, `second`, `lead`
-- `secondary` — optional, one of the same values
+- `primary` — one of `skip`, `third`, `second`, `lead`, or blank / `any` / `flex` / `*` to mean "no preference" (also implicitly sets the flexible flag)
+- `secondary` — optional, one of `skip`, `third`, `second`, `lead`
 - Flags — any of `flex` (can play any position), `recent` (played skip recently)
 - `experience` — optional integer 1–10, or a prefixed form (`exp:7`, `level=3`, `skill:9`). Values outside 1–10 are ignored.
 
@@ -105,18 +105,22 @@ Example:
 ```text
 John, skip
 Sarah, third, skip, , 8
-Mike, second, , flex, exp:4
+Mike, any, , , 6
+Alex, second, , flex, exp:4
 Emma, lead, , recent
 ```
+
+> **Tip for the fairest, most varied draws:** only mark the players who *must* be Skips and leave everyone else's `primary` blank / `any`. Skip is the only position the algorithm treats as a hard constraint — over-specifying Third / Second / Lead narrows the possible combinations and makes the same lineups repeat.
 
 ### Import from Excel / CSV
 
 Click **📄 Import Excel / CSV…** and choose a `.xlsx` workbook or a `.csv` file.
 
 - Each **worksheet** is treated as a competition or league (e.g. "Trophy 1", "Trophy 2").
-- The file must have a **`Name`** column and a **`Position`** column. Extra columns are ignored. If no header row is found, the first two columns are used.
-- Optionally include an **`Experience`** column (also recognised: `Level`, `Skill`, `Rating`, `Grade`, `exp`) containing an integer 1–10. Missing / out-of-range values are silently dropped — the player is still imported, just without a rating.
-- Position values are matched case-insensitively and tolerate leading/trailing spaces — `Skip`, ` skip`, `SKIP`, and `Skip ` are all accepted. `1st` / `2nd` / `3rd` also map to Lead / Second / Third.
+- The file must have a **`Name`** column and may optionally include a **`Position`** column and an **`Experience`** column. Extra columns are ignored. If no header row is found, the first two columns are used as Name and Position.
+- **`Experience`** (also recognised: `Level`, `Skill`, `Rating`, `Grade`, `exp`) is an integer 1–10 used by the *Balance draw by → Experience* mode. Missing / out-of-range values default to 5 (median) so unrated rosters still balance sensibly.
+- Position values are matched case-insensitively and tolerate leading/trailing spaces — `Skip`, ` skip`, `SKIP`, and `Skip ` are all accepted. `1st` / `2nd` / `3rd` also map to Lead / Second / Third. Blank / `any` / `flex` / `*` marks the player as flexible with no primary.
+- **For the fairest, most varied draws, only put `Skip` in the Position column for the players who must be Skips and leave everyone else blank.** Skip is the only position treated as a hard constraint — over-specifying the rest narrows the pool of valid team combinations.
 - Tick the sheets you want to import in the preview. A live preview shows which rows will be added.
 - **Selecting multiple sheets creates one competition tab per sheet** — Trophy 1 and Trophy 2 stay as independent draws with their own team counts (e.g. 5 teams for Trophy 1, 4 teams for Trophy 2).
 - Selecting a single sheet adds those players to the currently active tab. A "skip names already in the active tab" toggle avoids duplicates when topping up an existing roster.
@@ -169,14 +173,21 @@ The generator runs 200 randomised passes and keeps the best-fitting draw:
 
 Each player has an optional 1–10 experience rating (1 = beginner, 10 = advanced / professional). Players without a rating are treated as **5** — the median — so they don't skew team totals in either direction.
 
-The generator runs 40 randomised passes and keeps the best-balanced draw. Each pass:
+Every generated team is guaranteed to contain exactly one Skip. The generator runs 40 randomised passes and keeps the most balanced draw. Each pass:
 
 1. Locked slots (from a previous draw) are placed first — same as the position mode.
-2. **Sub selection is randomised**, not experience-based. If there are more players than slots, a random subset sits out. Beginners aren't systematically benched.
-3. Remaining players are sorted descending by effective experience with a random tiebreak among equals.
-4. **Greedy least-loaded assignment**: each player goes to the team with the lowest running total that still has capacity; ties are broken randomly at every step so repeated draws produce different results.
-5. **Within each team, positions are assigned using the same tier logic as position mode** — primary first, then secondary, then flexible — so players land where they're best suited whenever possible.
-6. Each attempt is scored by `variance(team totals) × 10 + tier penalty + spread penalty`. Lower is better. The variance term is the primary optimisation goal; the tier penalty is a secondary tiebreak so the algorithm still prefers position-fitting placements; the spread penalty discourages teams composed entirely of one experience band (beginner/intermediate/advanced) when the team has 3+ players.
+2. **Tiered Skip selection.** One Skip per team is chosen from these tiers in order — a lower-tier candidate is never used while a higher-tier candidate is still available:
+   - **Tier A** — explicitly designated Skips (`primary = skip`)
+   - **Tier B** — players who list Skip as their secondary position
+   - **Tier C** — flexible players ("any position")
+   - **Tier D** — promoted by experience, only if there still aren't enough Skips
+
+   This means an explicitly designated Skip with blank experience will always beat a rated non-Skip. "Played skip recently" players are deprioritised within each tier.
+3. **Sub selection is randomised**, not experience-based. If there are more players than slots, a random subset sits out. Beginners aren't systematically benched.
+4. **Greedy least-loaded distribution.** Remaining players are sorted descending by effective experience with a random tiebreak, then each is placed on the team with the lowest running total that still has capacity — seeded with each team's Skip total. Ties broken randomly at every step so repeated runs produce different lineups.
+5. **Swap-optimise pass.** All non-Skip cross-team swaps are considered; any swap that lowers the composite balance score is applied. Skips are locked so the one-Skip-per-team guarantee is preserved.
+6. **Position assignment.** Within each team, positions are filled using the same tier logic as position mode — primary → secondary → flexible — so players land where they're best suited.
+7. **Balance score.** Each attempt is scored by `variance(team totals) + 0.3 × variance(team averages) + spread penalty`. Lower is better. The spread penalty discourages teams composed entirely of one experience band (beginner / intermediate / advanced / expert) when the team has 3+ players and the roster actually contains multiple bands. The best-scoring attempt is displayed, along with a **draw-wide balance score (0–100)** where 100 means the team totals are all exactly on the mean.
 
 ### Which mode should I use?
 
@@ -193,7 +204,7 @@ The pure logic in [`lib/experience.js`](lib/experience.js) is covered by a Node.
 node --test tests/experience.test.js
 ```
 
-Coverage includes: validation of the 1–10 range, effective-experience defaults, band bucketing, variance and balance-score maths, greedy-assign and snake-draft correctness, spreadsheet header detection, bulk-paste field parsing, and edge cases from the requirements (odd player counts, extreme skill differences, all-unset rosters, deterministic vs. randomised runs).
+Coverage includes: validation of the 1–10 range, effective-experience defaults, band bucketing, variance and balance-score maths, greedy-assign and snake-draft correctness, spreadsheet header detection, bulk-paste field parsing, tiered Skip selection (designated Skip with blank experience, more or fewer designated Skips than teams, promotion by experience only as a last resort), draw-summary scoring, and edge cases from the requirements (odd player counts, extreme skill differences, all-unset rosters, deterministic vs. randomised runs).
 
 ## Privacy
 
