@@ -250,19 +250,32 @@ Emma, lead, , recent"></textarea>
                 <p class="hint">
                     Import players from an <strong>Excel workbook (.xlsx)</strong> or
                     <strong>CSV (.csv)</strong> file. Each sheet is treated as a competition
-                    or league. The file must have <code>Name</code> and <code>Position</code>
-                    columns (extra columns are ignored). Positions are matched
-                    case-insensitively to <em>skip / third / second / lead</em>.
+                    or league. The file must have a <code>Name</code> column and may
+                    optionally include <code>Position</code> and <code>Experience</code>
+                    columns — extra columns are ignored.
                 </p>
                 <p class="hint">
-                    Leave the <code>Position</code> cell blank, or type <code>any</code>
-                    (also <code>flex</code>, <code>flexible</code>, <code>anywhere</code>, or
-                    <code>*</code>) for a player who can be placed in any position.
+                    <strong>Position</strong> is matched case-insensitively to
+                    <em>skip / third / second / lead</em>. Leave the cell blank, or type
+                    <code>any</code> (also <code>flex</code>, <code>flexible</code>,
+                    <code>anywhere</code>, or <code>*</code>) for a player who can be
+                    placed anywhere.
                 </p>
                 <p class="hint">
-                    Optionally add an <code>Experience</code> column (also recognised:
-                    <code>Level</code>, <code>Skill</code>, <code>Rating</code>, <code>Grade</code>)
-                    with an integer 1–10. Values outside that range are ignored.
+                    <strong>Experience</strong> (also recognised: <code>Level</code>,
+                    <code>Skill</code>, <code>Rating</code>, <code>Grade</code>) is an
+                    integer 1–10 used by the <em>Balance draw by → Experience</em> mode.
+                    Blank cells default to 5 (median) so unrated rosters still balance
+                    sensibly. Values outside 1–10 are ignored.
+                </p>
+                <p class="hint tip">
+                    💡 <strong>Tip for the fairest, most varied draws:</strong> only mark
+                    the players who <em>must</em> be Skips in the <code>Position</code>
+                    column and leave everyone else blank. Locking players to Third / Second
+                    / Lead reduces the number of valid team combinations, so the same
+                    lineups tend to repeat. Skip designation is the only position the
+                    algorithm treats as a hard constraint — everything else balances best
+                    when the generator is free to shuffle.
                 </p>
                 <p class="hint">
                     Select one sheet to add its players to the currently active tab, or select

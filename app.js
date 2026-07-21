@@ -1425,23 +1425,28 @@
     /**
      * Balanced-by-experience draw attempt.
      *
-     * Algorithm:
-     *   1. Build empty teams and pre-fill any locked slots from the
-     *      previous draw (same as the position strategy).
-     *   2. From the unlocked pool, randomly pick which players will
-     *      play vs. sit out. Fairness matters here — if we always drew
-     *      the top-N by experience, beginners would sub every week.
-     *   3. Sort the playing set descending by effective experience with
-     *      a random tiebreak, then use `RDX.greedyAssign` to distribute
-     *      into teams (least-loaded team gets the next player, ties
-     *      broken randomly). This keeps team totals close while also
-     *      producing meaningfully different draws across runs.
-     *   4. Within each team, assign positions using the same tier logic
-     *      as the position strategy — primary first, then secondary,
-     *      then flexible — so players still land where they're best
-     *      suited whenever possible.
-     *   5. Score = variance-of-totals * BALANCE_WEIGHT + tier penalty.
-     *      Lower is better; the outer generateTeams loop keeps the best.
+     * Algorithm (guaranteed properties):
+     *   R1  Exactly one Skip on every team (locked Skips preserved;
+     *       otherwise a Skip-eligible player is pre-assigned per team,
+     *       promoting the highest-experience non-Skip when the pool
+     *       is short).
+     *   R2  Team totals are as close to equal as the roster permits
+     *       (least-loaded greedy + swap-optimise polish).
+     *   R3+R4  No team ends up as all-experts or all-beginners: the
+     *       swap step accepts any cross-team swap that lowers the
+     *       composite balance score, which includes a single-band
+     *       penalty per team.
+     *   R5  Team sizes are equal by construction — teamCount is
+     *       floor(active/teamSize) and extras become subs.
+     *   R6+R7  All ordering steps use Math.random with random
+     *       tiebreaks, so the same input produces different (but
+     *       equally balanced) team lineups across runs.
+     *   R8  `balanceScores` and `overallBalanceScore` are attached to
+     *       the result for the UI to display.
+     *
+     * The bulk of the algorithm lives in `lib/experience.js` so it can
+     * be unit-tested without the DOM. This function is the app-side
+     * adapter that plugs in lock handling and position placement.
      */
     function attemptDrawByExperience(activePlayers, teamCount, locks) {
         const positions = activePositions();
@@ -1475,9 +1480,24 @@
             });
         });
 
-        // ---- Locked-player experience totals per team ----
-        // These seed the greedy assignment so newly-placed players go
-        // to teams whose locked members are already lighter on skill.
+        // ---- Which teams still need a Skip? ----
+        // A team already has a Skip if either its `skip` slot is
+        // filled OR any locked slot holds a Skip-eligible player
+        // (rare, but keeps R1 correct when locks placed a Skip in an
+        // unexpected role).
+        const skipNeededByTeam = teams.map(team => {
+            const skipSlot = team.slots.skip;
+            if (skipSlot && skipSlot.playerId) return false;
+            const anyLockedSkip = positions.some(pos => {
+                const slot = team.slots[pos];
+                if (!slot.playerId) return false;
+                const p = getPlayer(slot.playerId);
+                return p && RDX.isSkipEligible(p);
+            });
+            return !anyLockedSkip;
+        });
+
+        // ---- Locked totals + capacities per team ----
         const lockedTotals = teams.map(team => {
             let total = 0;
             positions.forEach(pos => {
@@ -1489,8 +1509,6 @@
             });
             return total;
         });
-
-        // ---- Capacity remaining per team ----
         const capacities = teams.map(team => {
             let c = 0;
             positions.forEach(pos => { if (!team.slots[pos].playerId) c++; });
@@ -1498,38 +1516,171 @@
         });
         const totalCapacity = capacities.reduce((a, b) => a + b, 0);
 
-        // ---- Pick who plays vs. who subs (random and therefore fair) ----
+        // ---- Pool of unlocked players ----
         const pool = activePlayers.filter(p => !locks.playerLocked.has(p.id));
-        const shuffled = pool.slice();
-        RDX.shuffleInPlace(shuffled);
-        const toPlace = shuffled.slice(0, totalCapacity);
-        const substitutes = shuffled.slice(totalCapacity).map(p => p.id);
 
-        // ---- Descending sort with random tiebreak, then greedy draft ----
-        const enriched = toPlace.map(p => ({
+        // ---- Skip pre-assignment (R1) ----
+        // Pick one Skip for each team that still needs one, honouring
+        // the priority tiers designated > secondary > flexible >
+        // (promoted by experience). This is what guarantees that a
+        // player marked "Skip" (even with blank experience) is never
+        // displaced by a flexible / rated player.
+        const teamsNeedingSkip = skipNeededByTeam.filter(Boolean).length;
+        const tiers = RDX.partitionSkipCandidates(pool);
+        const nonSkipPool = tiers.other.slice();
+
+        let warnings = [];
+        const skipCapableCount = tiers.designated.length
+            + tiers.secondarySkip.length
+            + tiers.flexible.length;
+        if (skipCapableCount < teamsNeedingSkip) {
+            const need = teamsNeedingSkip - skipCapableCount;
+            warnings.push(
+                `Only ${skipCapableCount} Skip-eligible player` +
+                `${skipCapableCount === 1 ? '' : 's'} for ` +
+                `${teamsNeedingSkip} team${teamsNeedingSkip === 1 ? '' : 's'}. ` +
+                `Promoted ${need} highest-experience remaining ` +
+                `player${need === 1 ? '' : 's'} to Skip.`
+            );
+            nonSkipPool.sort((a, b) =>
+                RDX.getEffectiveExperience(b) - RDX.getEffectiveExperience(a)
+            );
+            const promoted = [];
+            while (skipCapableCount + promoted.length < teamsNeedingSkip
+                && nonSkipPool.length > 0) {
+                promoted.push(nonSkipPool.shift());
+            }
+            // Append promoted players to Tier C so
+            // selectSkipsForTeams picks them last, after every
+            // designated / secondary / flexible candidate.
+            tiers.flexible = tiers.flexible.concat(promoted);
+        }
+
+        const skipRes = RDX.selectSkipsForTeams(tiers, teamsNeedingSkip, Math.random);
+        const chosenSkips = skipRes.chosen.slice();
+        // Shuffle so team 0 doesn't systematically receive the same Skip.
+        RDX.shuffleInPlace(chosenSkips);
+
+        // Track which pool players we've already committed to teams
+        // (so they don't get picked again in the non-Skip greedy step).
+        const committedIds = new Set();
+        let skipCursor = 0;
+        teams.forEach((team, idx) => {
+            if (!skipNeededByTeam[idx]) return;
+            const skipPlayer = chosenSkips[skipCursor++];
+            if (!skipPlayer) return; // fewer skips than teams — team stays incomplete
+            const tier = positionTier(skipPlayer, 'skip') || 3;
+            team.slots.skip = {
+                playerId: skipPlayer.id,
+                locked: false,
+                tier: tier
+            };
+            lockedTotals[idx] += RDX.getEffectiveExperience(skipPlayer);
+            capacities[idx] -= 1;
+            committedIds.add(skipPlayer.id);
+        });
+
+        // Recompute total capacity now that Skips are seated.
+        const remainingCapacity = capacities.reduce((a, b) => a + b, 0);
+
+        // ---- Non-Skip greedy assignment ----
+        // Fair sub selection: shuffle non-committed pool, cut to
+        // remaining capacity. Any benched Skip-eligible players
+        // (returned by selectSkipsForTeams — they weren't picked
+        // for the Skip slot) rejoin as regular players.
+        const remainingPool = skipRes.benched
+            .concat(nonSkipPool)
+            .filter(p => !committedIds.has(p.id));
+        RDX.shuffleInPlace(remainingPool);
+        const playing = remainingPool.slice(0, remainingCapacity);
+        const subs = remainingPool.slice(remainingCapacity).map(p => p.id);
+
+        const enriched = playing.map(p => ({
             player: p,
             exp: RDX.getEffectiveExperience(p)
         }));
-        enriched.sort((a, b) =>
-            (b.exp - a.exp) || (Math.random() - 0.5)
-        );
+        enriched.sort((a, b) => (b.exp - a.exp) || (Math.random() - 0.5));
+
         const teamGroups = RDX.greedyAssign(enriched, lockedTotals, capacities);
 
-        // ---- Within each team, place players into open positions ----
-        // Position ordering matches the position strategy (Skip first),
-        // so scarce roles land first when a group is thin on flexibility.
+        // ---- Swap-optimise (R3, R4) ----
+        // Build player-groups per team including everyone already
+        // seated (locks + Skip pre-assignment) so the optimiser has
+        // the full picture. Only non-Skip, non-locked players are
+        // swappable — protect the Skip slot and locked slots.
+        const fullGroups = teams.map((team, idx) => {
+            const players = [];
+            positions.forEach(pos => {
+                const slot = team.slots[pos];
+                if (slot.playerId) {
+                    const p = getPlayer(slot.playerId);
+                    if (p) players.push({ player: p, protected: !!slot.locked || pos === 'skip' });
+                }
+            });
+            teamGroups[idx].forEach(p => {
+                players.push({ player: p, protected: false });
+            });
+            return players;
+        });
+
+        // Iteratively try swapping any unprotected pair between teams
+        // while balanceScore strictly decreases. We can't reuse the
+        // library's swapOptimise directly because it treats index 0 as
+        // "the Skip" — our locked players may sit at any index.
+        const scoreOf = (grps) => RDX.balanceScore(
+            RDX.computeTeamStats(grps.map(g => g.map(x => x.player)))
+        );
+        for (let it = 0; it < 50; it++) {
+            let improved = false;
+            let best = scoreOf(fullGroups);
+            for (let a = 0; a < fullGroups.length; a++) {
+                for (let b = a + 1; b < fullGroups.length; b++) {
+                    const ga = fullGroups[a];
+                    const gb = fullGroups[b];
+                    for (let i = 0; i < ga.length; i++) {
+                        if (ga[i].protected) continue;
+                        for (let j = 0; j < gb.length; j++) {
+                            if (gb[j].protected) continue;
+                            const tmp = ga[i]; ga[i] = gb[j]; gb[j] = tmp;
+                            const next = scoreOf(fullGroups);
+                            if (next < best - 1e-9) {
+                                best = next;
+                                improved = true;
+                            } else {
+                                gb[j] = ga[i]; ga[i] = tmp;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!improved) break;
+        }
+
+        // Rebuild per-team lists of unassigned (post-swap) non-Skip,
+        // non-locked players, then place them into the remaining
+        // position slots using the existing tier logic.
+        const perTeamUnplaced = fullGroups.map((group, idx) => {
+            const alreadySeated = new Set();
+            positions.forEach(pos => {
+                const slot = teams[idx].slots[pos];
+                if (slot.playerId) alreadySeated.add(slot.playerId);
+            });
+            return group
+                .filter(x => !alreadySeated.has(x.player.id))
+                .map(x => x.player);
+        });
+
+        // ---- Within each team, fill open positions ----
         let tierPenalty = 0;
         teams.forEach((team, idx) => {
-            const group = teamGroups[idx].slice();
+            const group = perTeamUnplaced[idx].slice();
             const needed = positions.filter(pos => !team.slots[pos].playerId);
-
             needed.forEach(pos => {
                 let picked = null;
                 let pickedTier = 0;
                 for (const tier of [1, 2, 3]) {
                     const candidates = group.filter(p => positionTier(p, pos) === tier);
                     if (!candidates.length) continue;
-                    // Same skip-recent nudge used by the position strategy.
                     if (pos === 'skip' && tier === 1) {
                         candidates.sort((a, b) => {
                             const wa = a.skipRecently ? SKIP_RECENT_PENALTY * Math.random() : Math.random();
@@ -1554,13 +1705,11 @@
                     tierPenalty += pickedTier;
                 }
             });
+            // Any group leftovers (no eligible role) fall through to subs.
+            group.forEach(p => subs.push(p.id));
         });
 
-        // ---- Compute balance score from final team compositions ----
-        // Include locked players so their experience counts toward the
-        // team total. Anyone left over in a team's group (e.g. a group
-        // of 4 all-primary-lead players facing a Skip/Third/Second/Lead
-        // set) becomes a substitute so we don't lose them.
+        // ---- Compute displayed balance scores (R8) ----
         const finalGroups = teams.map(team => {
             const players = [];
             positions.forEach(pos => {
@@ -1572,33 +1721,25 @@
             });
             return players;
         });
-        const stats = RDX.computeTeamStats(finalGroups);
-
-        // Any greedy-placed player who couldn't be fit into an open
-        // position slot (rare — requires a team with no tier-1/2/3
-        // match for a role) falls through to substitutes.
-        teamGroups.forEach((group, idx) => {
-            group.forEach(p => {
-                const alreadyPlaced = positions.some(pos =>
-                    teams[idx].slots[pos].playerId === p.id);
-                if (!alreadyPlaced) substitutes.push(p.id);
-            });
-        });
+        const summary = RDX.drawSummary(finalGroups);
 
         // ---- Warning for incomplete teams ----
-        let warning = '';
+        let warning = warnings.join(' ');
         const incompleteTeams = teams.filter(t =>
             positions.some(pos => !t.slots[pos].playerId)
         );
         if (incompleteTeams.length > 0) {
-            warning = `Some ${teamSize}-person teams couldn't be completed given the players' eligible positions. Consider marking more players as flexible.`;
+            const extra = `Some ${teamSize}-person teams couldn't be completed given the players' eligible positions. Consider marking more players as flexible.`;
+            warning = warning ? `${warning} ${extra}` : extra;
         }
 
         return {
             teams,
-            substitutes,
-            score: RDX.balanceScore(stats) * RDX.BALANCE_WEIGHT + tierPenalty,
-            warning
+            substitutes: subs,
+            score: summary.raw * RDX.BALANCE_WEIGHT + tierPenalty,
+            warning,
+            overallBalanceScore: summary.overallScore,
+            meanTotal: summary.meanTotal
         };
     }
 
@@ -1902,6 +2043,29 @@
         });
     }
 
+    /**
+     * Overall balance score for the current draw, recomputed from live
+     * state so it stays accurate after drag-and-drop reshuffles.
+     * Returns null when there aren't enough players to score.
+     */
+    function currentDrawSummary() {
+        if (!RDX || !state.teams || state.teams.length === 0) return null;
+        const groups = state.teams.map(team =>
+            activePositions()
+                .map(pos => team.slots[pos].playerId)
+                .filter(Boolean)
+                .map(getPlayer)
+                .filter(Boolean)
+        );
+        return RDX.drawSummary(groups);
+    }
+
+    /** Format the overall balance score as an integer 0..100 string. */
+    function formatDrawBalance() {
+        const s = currentDrawSummary();
+        return s ? String(Math.round(s.overallScore)) : '—';
+    }
+
     function renderTeams() {
         const grid = ui.teamsGrid;
         grid.innerHTML = '';
@@ -1924,6 +2088,9 @@
             `${state.teams.length} team${state.teams.length === 1 ? '' : 's'}` +
             (state.substitutes.length > 0
                 ? ` · ${state.substitutes.length} sub${state.substitutes.length === 1 ? '' : 's'}`
+                : '') +
+            (comp && comp.drawMode === 'experience'
+                ? ` · balance ${formatDrawBalance()}/100`
                 : '') +
             compLabel;
 

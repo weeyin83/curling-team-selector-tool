@@ -550,6 +550,17 @@ textarea {
     font-size: 0.8rem;
 }
 
+/* Callout variant used for guidance tips inside the import / bulk-add
+   panels. A lighter neutral shade than the surrounding bulk-panel so
+   the advice stands out gently without shouting. */
+.hint.tip {
+    background: #fbfcfd;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 10px;
+    border-radius: 6px;
+}
+
 /* ---------- Import panel ---------- */
 #import-file {
     display: block;
