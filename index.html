@@ -208,6 +208,27 @@
                     </label>
                 </div>
 
+                <!-- Experience level (optional, additional to positions).
+                     The checkbox opts the player in. When unset the slider
+                     is disabled and the value shows "—" so it's obvious
+                     nothing has been chosen yet. -->
+                <div class="form-row experience-block">
+                    <label class="checkbox experience-toggle">
+                        <input type="checkbox" id="experience-toggle" />
+                        <span>Set <strong>experience level</strong> (optional — used only when balancing draws by experience)</span>
+                    </label>
+                    <div class="experience-slider-row" data-enabled="false">
+                        <span class="experience-anchor beginner" aria-hidden="true">1 · Beginner</span>
+                        <input type="range" min="1" max="10" step="1" value="5"
+                            id="experience-level"
+                            class="experience-slider"
+                            aria-label="Experience level (1 = beginner, 10 = advanced or professional)"
+                            disabled />
+                        <span class="experience-anchor pro" aria-hidden="true">10 · Pro</span>
+                        <span class="experience-value" id="experience-value" aria-live="polite">—</span>
+                    </div>
+                </div>
+
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">➕ Add player</button>
                     <button type="button" class="btn btn-ghost" id="bulk-toggle">Bulk paste…</button>
@@ -219,14 +240,15 @@
             <div class="bulk-panel hidden" id="bulk-panel">
                 <p class="hint">
                     Paste one player per line. Format:
-                    <code>Name, primary, secondary, flags</code>
-                    (secondary and flags are optional). Flags: <code>flex</code>, <code>recent</code>.
-                    Example: <code>Sarah, third, skip, flex</code>
+                    <code>Name, primary, secondary, flags, experience</code>
+                    (everything after the name is optional). Flags: <code>flex</code>, <code>recent</code>.
+                    Experience is an optional integer 1–10 or a prefixed form like <code>exp:7</code>.
+                    Example: <code>Sarah, third, skip, flex, 8</code>
                 </p>
                 <textarea id="bulk-input" rows="6"
                     placeholder="John, skip
-Sarah, third, skip
-Mike, second, , flex
+Sarah, third, skip, , 8
+Mike, second, , flex, exp:4
 Emma, lead, , recent"></textarea>
                 <div class="form-actions">
                     <button type="button" class="btn btn-primary" id="bulk-add">Add all</button>
@@ -239,14 +261,32 @@ Emma, lead, , recent"></textarea>
                 <p class="hint">
                     Import players from an <strong>Excel workbook (.xlsx)</strong> or
                     <strong>CSV (.csv)</strong> file. Each sheet is treated as a competition
-                    or league. The file must have <code>Name</code> and <code>Position</code>
-                    columns (extra columns are ignored). Positions are matched
-                    case-insensitively to <em>skip / third / second / lead</em>.
+                    or league. The file must have a <code>Name</code> column and may
+                    optionally include <code>Position</code> and <code>Experience</code>
+                    columns — extra columns are ignored.
                 </p>
                 <p class="hint">
-                    Leave the <code>Position</code> cell blank, or type <code>any</code>
-                    (also <code>flex</code>, <code>flexible</code>, <code>anywhere</code>, or
-                    <code>*</code>) for a player who can be placed in any position.
+                    <strong>Position</strong> is matched case-insensitively to
+                    <em>skip / third / second / lead</em>. Leave the cell blank, or type
+                    <code>any</code> (also <code>flex</code>, <code>flexible</code>,
+                    <code>anywhere</code>, or <code>*</code>) for a player who can be
+                    placed anywhere.
+                </p>
+                <p class="hint">
+                    <strong>Experience</strong> (also recognised: <code>Level</code>,
+                    <code>Skill</code>, <code>Rating</code>, <code>Grade</code>) is an
+                    integer 1–10 used by the <em>Balance draw by → Experience</em> mode.
+                    Blank cells default to 5 (median) so unrated rosters still balance
+                    sensibly. Values outside 1–10 are ignored.
+                </p>
+                <p class="hint tip">
+                    💡 <strong>Tip for the fairest, most varied draws:</strong> only mark
+                    the players who <em>must</em> be Skips in the <code>Position</code>
+                    column and leave everyone else blank. Locking players to Third / Second
+                    / Lead reduces the number of valid team combinations, so the same
+                    lineups tend to repeat. Skip designation is the only position the
+                    algorithm treats as a hard constraint — everything else balances best
+                    when the generator is free to shuffle.
                 </p>
                 <p class="hint">
                     Select one sheet to add its players to the currently active tab, or select
@@ -278,6 +318,7 @@ Emma, lead, , recent"></textarea>
                                 <tr>
                                     <th>Name</th>
                                     <th>Position</th>
+                                    <th>Experience</th>
                                     <th>Sheet</th>
                                 </tr>
                             </thead>
@@ -334,6 +375,23 @@ Emma, lead, , recent"></textarea>
                     <option value="2">2-person — Player A, Player B</option>
                 </select>
                 <span class="hint team-size-hint" id="team-size-hint"></span>
+            </div>
+
+            <!-- Balance mode: how the draw should distribute players.
+                 Kept as radios (not a dropdown) so both options are visible
+                 at a glance and the user is aware that experience balancing
+                 exists. Position balancing is the historical default. -->
+            <div class="balance-mode-row" role="radiogroup" aria-label="Team balancing mode">
+                <span class="balance-mode-label">Balance draw by:</span>
+                <label class="balance-mode-option">
+                    <input type="radio" name="balance-mode" value="position" id="balance-mode-position" checked />
+                    <span>Position</span>
+                </label>
+                <label class="balance-mode-option">
+                    <input type="radio" name="balance-mode" value="experience" id="balance-mode-experience" />
+                    <span>Experience</span>
+                </label>
+                <span class="balance-mode-hint" id="balance-mode-hint"></span>
             </div>
 
             <div class="team-controls">
@@ -449,6 +507,23 @@ Emma, lead, , recent"></textarea>
                     <input type="checkbox" id="edit-skip-recently" />
                     <span>Played skip recently</span>
                 </label>
+
+                <div class="form-row experience-block">
+                    <label class="checkbox experience-toggle">
+                        <input type="checkbox" id="edit-experience-toggle" />
+                        <span>Set <strong>experience level</strong> (optional)</span>
+                    </label>
+                    <div class="experience-slider-row" data-enabled="false">
+                        <span class="experience-anchor beginner" aria-hidden="true">1 · Beginner</span>
+                        <input type="range" min="1" max="10" step="1" value="5"
+                            id="edit-experience-level"
+                            class="experience-slider"
+                            aria-label="Experience level (1 = beginner, 10 = advanced or professional)"
+                            disabled />
+                        <span class="experience-anchor pro" aria-hidden="true">10 · Pro</span>
+                        <span class="experience-value" id="edit-experience-value" aria-live="polite">—</span>
+                    </div>
+                </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Save</button>
                     <button type="button" class="btn btn-ghost" id="edit-cancel">Cancel</button>
@@ -457,6 +532,7 @@ Emma, lead, , recent"></textarea>
         </div>
     </div>
 
+    <script src="lib/experience.js" defer></script>
     <script src="app.js" defer></script>
 </body>
 </html>

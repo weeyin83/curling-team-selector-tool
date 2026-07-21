@@ -1,0 +1,20 @@
+{
+  "name": "curling-team-selector-tool",
+  "version": "1.0.0",
+  "description": "A simple, mobile-friendly web app for randomising curling teams. Runs entirely in the browser — no build step, no dependencies.",
+  "private": true,
+  "scripts": {
+    "dev": "npx http-server -p 8080 -c-1",
+    "start": "npx http-server -p 8080 -c-1",
+    "serve": "npx http-server -p 8080 -c-1",
+    "test": "node --test tests/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/weeyin83/curling-team-selector-tool.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
