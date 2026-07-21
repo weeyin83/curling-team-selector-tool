@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#0b5cff" />
 
@@ -17,6 +17,15 @@
     <!-- Favicons -->
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="apple-touch-icon" href="favicon.png" />
+
+    <!-- PWA — installable to iOS/Android home screen, works offline -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="RinkDraw" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="RinkDraw" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="article" />
@@ -209,6 +218,20 @@
                 <p>
                     Click <em>Print / Save as PDF</em> to produce a clean team sheet suitable
                     for pinning to the club notice board or emailing out.
+                </p>
+
+                <h3>Install it as an app</h3>
+                <p>
+                    The site is a <strong>Progressive Web App</strong>, so you can add it to
+                    your home screen and use it like a real app — no App Store, no download.
+                    On iOS/iPadOS tap Share → <em>Add to Home Screen</em>. On Android Chrome
+                    you'll get an <em>Install app</em> prompt, or use the browser menu.
+                </p>
+                <p>
+                    Once installed it works <strong>offline</strong>, launches full-screen,
+                    and starts instantly — handy at the rink where Wi-Fi is patchy. Your
+                    roster still stays entirely in your browser; nothing is stored on any
+                    server.
                 </p>
 
                 <h3>Built for curling clubs</h3>
