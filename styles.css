@@ -1572,6 +1572,7 @@ textarea {
     .feedback,
     .draw-overlay,
     .thanks-pill,
+    .feedback-toast,
     .modal {
         display: none !important;
     }
@@ -1637,4 +1638,167 @@ textarea {
     .sub-chip {
         border: 1px solid #000;
     }
+}
+
+/* ---------- Footer feedback link ---------- */
+.footer-feedback {
+    margin-top: 6px;
+    font-size: 0.85rem;
+}
+
+.footer-feedback-link {
+    color: inherit;
+    opacity: 0.8;
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+}
+
+.footer-feedback-link:hover,
+.footer-feedback-link:focus-visible {
+    opacity: 1;
+    text-decoration: none;
+    border-bottom-style: solid;
+}
+
+/* ---------- Feedback toast ---------- */
+/* Small, dismissible nudge shown once per page load after the user
+   completes a draw or prints. Sits bottom-left so it doesn't clash
+   with the bottom-right "Say thanks" pill. */
+.feedback-toast {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: 10px 12px;
+    background: #fff;
+    color: #12294a;
+    border: 1px solid #d5deec;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(11, 30, 66, 0.14);
+    font-size: 0.9rem;
+    line-height: 1.35;
+    animation: feedback-toast-in 220ms ease-out;
+}
+
+.feedback-toast.hidden {
+    display: none;
+}
+
+.feedback-toast-icon {
+    font-size: 1.1rem;
+}
+
+.feedback-toast-text {
+    flex: 1;
+}
+
+.feedback-toast-cta {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    background: none;
+    border: 0;
+    color: #0b5cff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.feedback-toast-cta:hover,
+.feedback-toast-cta:focus-visible {
+    color: #073bb0;
+}
+
+.feedback-toast-close {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    color: #5c6b85;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.feedback-toast-close:hover,
+.feedback-toast-close:focus-visible {
+    background: #eef2f8;
+    color: #12294a;
+}
+
+@keyframes feedback-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+    .feedback-toast {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        max-width: none;
+    }
+}
+
+/* ---------- Feedback modal ---------- */
+.feedback-rating {
+    border: 0;
+    padding: 0;
+    margin: 0 0 12px;
+}
+
+.feedback-rating legend {
+    padding: 0;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.rating-stars {
+    display: flex;
+    gap: 4px;
+}
+
+.rating-star {
+    padding: 4px 6px;
+    background: transparent;
+    border: 0;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #cbd3e0;
+    cursor: pointer;
+    transition: color 120ms ease, transform 120ms ease;
+}
+
+.rating-star:hover,
+.rating-star:focus-visible {
+    transform: scale(1.1);
+    outline: none;
+}
+
+.rating-star.is-filled {
+    color: #f5b301;
+}
+
+.feedback-status {
+    min-height: 1.25em;
+    margin: 8px 0 0;
+    font-size: 0.88rem;
+    color: #5c6b85;
+}
+
+.feedback-status.is-error {
+    color: #b3261e;
+}
+
+.feedback-status.is-success {
+    color: #1f7a3a;
 }

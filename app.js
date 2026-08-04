@@ -266,7 +266,20 @@
         editExperienceToggle: document.getElementById('edit-experience-toggle'),
         editExperienceInput: document.getElementById('edit-experience-level'),
         editExperienceValue: document.getElementById('edit-experience-value'),
-        editCancel: document.getElementById('edit-cancel')
+        editCancel: document.getElementById('edit-cancel'),
+
+        // Feedback (anonymous, submits to Formspree; no local storage).
+        feedbackLink: document.getElementById('feedback-link'),
+        feedbackToast: document.getElementById('feedback-toast'),
+        feedbackToastOpen: document.getElementById('feedback-toast-open'),
+        feedbackToastClose: document.getElementById('feedback-toast-close'),
+        feedbackModal: document.getElementById('feedback-modal'),
+        feedbackForm: document.getElementById('feedback-form'),
+        feedbackMessage: document.getElementById('feedback-message'),
+        feedbackConsent: document.getElementById('feedback-consent'),
+        feedbackSubmit: document.getElementById('feedback-submit'),
+        feedbackCancel: document.getElementById('feedback-cancel'),
+        feedbackStatus: document.getElementById('feedback-status')
     };
 
     /* -----------------------------------------------------------------
@@ -2491,6 +2504,12 @@
             if (stillOnTarget && window.matchMedia('(max-width: 899px)').matches) {
                 document.getElementById('teams-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
+
+            // Gentle feedback nudge — once per page load, delayed so
+            // it never undercuts the reveal animation.
+            if (!result.warning) {
+                scheduleFeedbackNudge(1800);
+            }
         });
     }
 
@@ -2968,6 +2987,138 @@
                 closeEditModal();
             }
         });
+
+        wireFeedback();
+    }
+
+    /* -----------------------------------------------------------------
+     * Anonymous feedback
+     * -----------------------------------------------------------------
+     * Submits to Formspree over HTTPS directly from the browser.
+     * Nothing is persisted locally — the "already nudged" flag lives
+     * in memory only, so a reload resets it (matching the app's
+     * zero-storage promise).
+     * ----------------------------------------------------------------- */
+
+    const FEEDBACK_ENDPOINT = 'https://formspree.io/f/xkodaejg';
+    let feedbackNudgeShown = false;
+    let feedbackNudgeTimer = null;
+    let feedbackRating = 0;
+
+    function wireFeedback() {
+        if (!ui.feedbackModal) return;
+
+        ui.feedbackLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openFeedbackModal();
+        });
+        ui.feedbackToastOpen.addEventListener('click', openFeedbackModal);
+        ui.feedbackToastClose.addEventListener('click', hideFeedbackToast);
+        ui.feedbackCancel.addEventListener('click', closeFeedbackModal);
+        ui.feedbackModal.addEventListener('click', (e) => {
+            if (e.target === ui.feedbackModal) closeFeedbackModal();
+        });
+        ui.feedbackForm.addEventListener('submit', submitFeedback);
+        ui.feedbackModal.querySelectorAll('.rating-star').forEach(btn => {
+            btn.addEventListener('click', () => {
+                feedbackRating = Number(btn.dataset.rating) || 0;
+                updateRatingStars(feedbackRating);
+            });
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !ui.feedbackModal.classList.contains('hidden')) {
+                closeFeedbackModal();
+            }
+        });
+
+        // Nudge after the OS print dialog closes.
+        window.addEventListener('afterprint', () => scheduleFeedbackNudge(600));
+    }
+
+    function scheduleFeedbackNudge(delayMs) {
+        if (feedbackNudgeShown) return;
+        if (feedbackNudgeTimer) return;
+        feedbackNudgeTimer = window.setTimeout(() => {
+            feedbackNudgeTimer = null;
+            showFeedbackToast();
+        }, Math.max(0, delayMs || 0));
+    }
+
+    function showFeedbackToast() {
+        if (feedbackNudgeShown || !ui.feedbackToast) return;
+        feedbackNudgeShown = true;
+        ui.feedbackToast.classList.remove('hidden');
+        // Auto-dismiss so it never lingers in the user's way.
+        window.setTimeout(hideFeedbackToast, 10000);
+    }
+
+    function hideFeedbackToast() {
+        if (!ui.feedbackToast) return;
+        ui.feedbackToast.classList.add('hidden');
+    }
+
+    function openFeedbackModal() {
+        if (!ui.feedbackModal) return;
+        hideFeedbackToast();
+        feedbackNudgeShown = true;
+        feedbackRating = 0;
+        ui.feedbackForm.reset();
+        updateRatingStars(0);
+        ui.feedbackStatus.textContent = '';
+        ui.feedbackStatus.className = 'feedback-status';
+        ui.feedbackSubmit.disabled = false;
+        ui.feedbackModal.classList.remove('hidden');
+    }
+
+    function closeFeedbackModal() {
+        if (!ui.feedbackModal) return;
+        ui.feedbackModal.classList.add('hidden');
+    }
+
+    function updateRatingStars(n) {
+        ui.feedbackModal.querySelectorAll('.rating-star').forEach(s => {
+            const val = Number(s.dataset.rating);
+            const on = val <= n;
+            s.classList.toggle('is-filled', on);
+            s.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+    }
+
+    function submitFeedback(e) {
+        e.preventDefault();
+        const message = ui.feedbackMessage.value.trim();
+        if (!feedbackRating && !message) {
+            ui.feedbackStatus.textContent = 'Add a rating or a comment before sending.';
+            ui.feedbackStatus.className = 'feedback-status is-error';
+            return;
+        }
+        ui.feedbackSubmit.disabled = true;
+        ui.feedbackStatus.textContent = 'Sending…';
+        ui.feedbackStatus.className = 'feedback-status';
+
+        fetch(FEEDBACK_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json'
+            },
+            body: JSON.stringify({
+                rating: feedbackRating || '',
+                message,
+                consent_to_quote: ui.feedbackConsent.checked ? 'yes' : 'no'
+            })
+        })
+            .then(res => {
+                if (!res.ok) throw new Error('bad status ' + res.status);
+                ui.feedbackStatus.textContent = 'Thanks! Feedback sent.';
+                ui.feedbackStatus.className = 'feedback-status is-success';
+                window.setTimeout(closeFeedbackModal, 1200);
+            })
+            .catch(() => {
+                ui.feedbackStatus.textContent = "Couldn't send — please try again in a moment.";
+                ui.feedbackStatus.className = 'feedback-status is-error';
+                ui.feedbackSubmit.disabled = false;
+            });
     }
 
     /* -----------------------------------------------------------------

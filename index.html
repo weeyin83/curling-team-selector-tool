@@ -450,8 +450,57 @@ Emma, lead, , recent"></textarea>
             <p class="built-by">
                 Built by a curler, for curlers — <a href="https://sarahlean.com" target="_blank" rel="noopener noreferrer">Sarah Lean</a>
             </p>
+            <p class="footer-feedback">
+                <a href="#" id="feedback-link" class="footer-feedback-link">💬 Share feedback</a>
+            </p>
         </div>
     </footer>
+
+    <!-- Feedback nudge — small dismissible toast shown once per page
+         load after a draw or after Print. No storage; a page reload
+         resets the in-memory flag, matching the app's privacy model. -->
+    <div class="feedback-toast hidden" id="feedback-toast" role="status" aria-live="polite">
+        <span class="feedback-toast-icon" aria-hidden="true">💬</span>
+        <span class="feedback-toast-text">
+            Enjoying this?
+            <button type="button" class="feedback-toast-cta" id="feedback-toast-open">Share 30-sec feedback</button>
+        </span>
+        <button type="button" class="feedback-toast-close" id="feedback-toast-close" aria-label="Dismiss feedback prompt">×</button>
+    </div>
+
+    <!-- Feedback modal — anonymous, submits directly to Formspree over
+         HTTPS from the browser. Nothing is stored locally. -->
+    <div class="modal hidden" id="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+        <div class="modal-content">
+            <h3 id="feedback-modal-title">Share anonymous feedback</h3>
+            <p class="hint">Takes 30 seconds. No sign-up, nothing stored on this device.</p>
+            <form id="feedback-form" novalidate>
+                <fieldset class="feedback-rating">
+                    <legend>How would you rate it?</legend>
+                    <div class="rating-stars" role="radiogroup" aria-label="Star rating">
+                        <button type="button" class="rating-star" data-rating="1" role="radio" aria-checked="false" aria-label="1 star">★</button>
+                        <button type="button" class="rating-star" data-rating="2" role="radio" aria-checked="false" aria-label="2 stars">★</button>
+                        <button type="button" class="rating-star" data-rating="3" role="radio" aria-checked="false" aria-label="3 stars">★</button>
+                        <button type="button" class="rating-star" data-rating="4" role="radio" aria-checked="false" aria-label="4 stars">★</button>
+                        <button type="button" class="rating-star" data-rating="5" role="radio" aria-checked="false" aria-label="5 stars">★</button>
+                    </div>
+                </fieldset>
+                <label class="field">
+                    <span>What worked or didn't? <em>(optional)</em></span>
+                    <textarea id="feedback-message" rows="4" maxlength="1000" placeholder="Any feedback welcome…"></textarea>
+                </label>
+                <label class="checkbox">
+                    <input type="checkbox" id="feedback-consent" />
+                    <span>You may quote my feedback anonymously on the website or social media.</span>
+                </label>
+                <p class="feedback-status" id="feedback-status" role="status" aria-live="polite"></p>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="feedback-submit">Send</button>
+                    <button type="button" class="btn btn-ghost" id="feedback-cancel">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Floating thank-you pill -->
     <a
